@@ -1,0 +1,41 @@
+{
+  "Landing": {
+    "title": "Salon Hub",
+    "subtitle": "Find and book trusted salons across Saudi Arabia.",
+    "cta": "Get started"
+  },
+  "Nav": {
+    "login": "Log in",
+    "register": "Sign up",
+    "logout": "Log out"
+  },
+  "Auth": {
+    "Login": {
+      "title": "Log in",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Log in",
+      "error": "Invalid email or password",
+      "noAccount": "Don't have an account?",
+      "registerLink": "Sign up"
+    },
+    "Register": {
+      "title": "Create your account",
+      "name": "Full name",
+      "email": "Email",
+      "password": "Password",
+      "phone": "Phone (optional)",
+      "role": "I am a...",
+      "roleCustomer": "Customer",
+      "roleSalonOwner": "Salon owner",
+      "submit": "Sign up",
+      "error": "Something went wrong. Please try again.",
+      "haveAccount": "Already have an account?",
+      "loginLink": "Log in"
+    }
+  },
+  "Dashboard": {
+    "welcome": "Welcome, {name}",
+    "role": "Role: {role}"
+  }
+}
