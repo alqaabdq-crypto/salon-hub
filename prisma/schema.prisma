@@ -1,5 +1,8 @@
-// Prisma schema for Salon Hub — full MVP schema (Milestone 1).
-// Only User is exercised this milestone; the rest avoids schema churn later.
+// Prisma schema for Salon Hub.
+//
+// M1 shipped auth only. M2 (this revision) applies the three confirmed product
+// decisions — see README.md: bilingual catalog, multi-service bookings, and a
+// hybrid commission + subscription revenue model.
 
 generator client {
   provider = "prisma-client"
@@ -44,6 +47,30 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum PlanTier {
+  FREE
+  PREMIUM
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
 enum DayOfWeek {
   MON
   TUE
@@ -71,24 +98,33 @@ model User {
   favorites Favorite[]
 }
 
+// Catalog copy is bilingual (see README). `slug` stays single — it is URL-safe
+// Latin and shared across locales so links survive a language switch.
 model Salon {
-  id             String      @id @default(cuid())
-  ownerId        String
-  owner          User        @relation(fields: [ownerId], references: [id])
-  name           String
-  slug           String      @unique
-  description    String
-  genderFocus    GenderFocus
-  status         SalonStatus @default(PENDING_VERIFICATION)
-  address        String
-  city           String
-  lat            Float?
-  lng            Float?
-  phone          String
-  coverImageUrl  String?
-  avgRating      Float       @default(0)
-  reviewCount    Int         @default(0)
-  createdAt      DateTime    @default(now())
+  id            String      @id @default(cuid())
+  ownerId       String
+  owner         User        @relation(fields: [ownerId], references: [id])
+  nameEn        String
+  nameAr        String
+  slug          String      @unique
+  descriptionEn String
+  descriptionAr String
+  genderFocus   GenderFocus
+  status        SalonStatus @default(PENDING_VERIFICATION)
+  address       String
+  city          String
+  lat           Float?
+  lng           Float?
+  phone         String
+  coverImageUrl String?
+  avgRating     Float       @default(0)
+  reviewCount   Int         @default(0)
+
+  // Negotiated per-salon override. Null falls back to the subscribed plan's
+  // rate, then to the platform default. Stored as a fraction: 0.1500 = 15%.
+  commissionRate Decimal? @db.Decimal(5, 4)
+
+  createdAt DateTime @default(now())
 
   services     Service[]
   staff        Staff[]
@@ -96,8 +132,11 @@ model Salon {
   reviews      Review[]
   favorites    Favorite[]
   photos       SalonPhoto[]
+  payouts      Payout[]
+  subscription Subscription?
 
   @@index([ownerId])
+  @@index([status, city])
 }
 
 model SalonPhoto {
@@ -112,7 +151,8 @@ model SalonPhoto {
 
 model Category {
   id       String    @id @default(cuid())
-  name     String
+  nameEn   String
+  nameAr   String
   slug     String    @unique
   icon     String?
   services Service[]
@@ -124,14 +164,16 @@ model Service {
   salon           Salon    @relation(fields: [salonId], references: [id])
   categoryId      String
   category        Category @relation(fields: [categoryId], references: [id])
-  name            String
-  description     String?
+  nameEn          String
+  nameAr          String
+  descriptionEn   String?
+  descriptionAr   String?
   durationMinutes Int
-  price           Decimal
+  price           Decimal  @db.Decimal(10, 2)
   isActive        Boolean  @default(true)
 
   staffServices StaffService[]
-  bookings      Booking[]
+  bookingItems  BookingItem[]
 
   @@index([salonId])
 }
@@ -142,13 +184,14 @@ model Staff {
   salon    Salon   @relation(fields: [salonId], references: [id])
   name     String
   photoUrl String?
-  bio      String?
+  bioEn    String?
+  bioAr    String?
   isActive Boolean @default(true)
 
   staffServices StaffService[]
   workingHours  WorkingHour[]
   timeOff       TimeOff[]
-  bookings      Booking[]
+  bookingItems  BookingItem[]
 
   @@index([salonId])
 }
@@ -185,30 +228,58 @@ model TimeOff {
   @@index([staffId])
 }
 
-// Overlap-prevention EXCLUDE constraint (btree_gist) deferred to the
-// booking-engine milestone — needs a raw-SQL migration, out of scope for auth-only M1.
+// A booking is one visit holding many services. `startTime`/`endTime` are the
+// envelope over its items, denormalised so salon-level calendar queries don't
+// have to aggregate; `totalPrice` is the sum of item prices.
 model Booking {
   id         String        @id @default(cuid())
   customerId String
   customer   User          @relation(fields: [customerId], references: [id])
   salonId    String
   salon      Salon         @relation(fields: [salonId], references: [id])
-  staffId    String
-  staff      Staff         @relation(fields: [staffId], references: [id])
-  serviceId  String
-  service    Service       @relation(fields: [serviceId], references: [id])
   startTime  DateTime
   endTime    DateTime
   status     BookingStatus @default(PENDING)
-  totalPrice Decimal
+  totalPrice Decimal       @db.Decimal(10, 2)
   notes      String?
   createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
+  items   BookingItem[]
   payment Payment?
   review  Review?
 
-  @@index([staffId, startTime, endTime])
   @@index([salonId, startTime])
+  @@index([customerId])
+}
+
+// One service within a visit. Staff is per-item, so a single visit can span
+// several people. Price and duration are snapshots taken at booking time —
+// repricing a Service must never rewrite booking history.
+//
+// Overlap prevention (btree_gist EXCLUDE on staffId + time range) belongs here,
+// not on Booking, and is deferred to the booking-engine milestone. It needs a
+// raw-SQL migration, and it has to be partial so CANCELLED visits stop blocking
+// slots — which means `status` has to be reachable from this row. Decide between
+// denormalising status onto the item or enforcing it in the availability engine
+// before writing that migration.
+model BookingItem {
+  id              String   @id @default(cuid())
+  bookingId       String
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  serviceId       String
+  service         Service  @relation(fields: [serviceId], references: [id])
+  staffId         String
+  staff           Staff    @relation(fields: [staffId], references: [id])
+  startTime       DateTime
+  endTime         DateTime
+  durationMinutes Int
+  price           Decimal  @db.Decimal(10, 2)
+  position        Int
+
+  @@unique([bookingId, position])
+  @@index([bookingId])
+  @@index([staffId, startTime, endTime])
 }
 
 // Field names kept gateway-agnostic (not Stripe-specific) — M5 integrates Moyasar.
@@ -218,12 +289,74 @@ model Payment {
   booking          Booking       @relation(fields: [bookingId], references: [id])
   gatewayPaymentId String?       @unique
   gatewayInvoiceId String?
-  amount           Decimal
+  amount           Decimal       @db.Decimal(10, 2)
   currency         String        @default("SAR")
   status           PaymentStatus @default(PENDING)
-  refundedAmount   Decimal?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  refundedAmount   Decimal?      @db.Decimal(10, 2)
+
+  // Commission split, resolved at capture time from the effective rate so later
+  // rate changes don't retroactively alter what a salon is owed.
+  platformFee Decimal? @db.Decimal(10, 2)
+  salonNet    Decimal? @db.Decimal(10, 2)
+
+  payoutId String?
+  payout   Payout? @relation(fields: [payoutId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([payoutId])
+}
+
+// A settlement to a salon covering every Payment in the period.
+model Payout {
+  id          String       @id @default(cuid())
+  salonId     String
+  salon       Salon        @relation(fields: [salonId], references: [id])
+  amount      Decimal      @db.Decimal(10, 2)
+  currency    String       @default("SAR")
+  status      PayoutStatus @default(PENDING)
+  periodStart DateTime
+  periodEnd   DateTime
+  reference   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  payments Payment[]
+
+  @@index([salonId, status])
+}
+
+// Subscription tier sold to salons, alongside per-booking commission.
+model Plan {
+  id              String          @id @default(cuid())
+  tier            PlanTier        @unique
+  nameEn          String
+  nameAr          String
+  price           Decimal         @db.Decimal(10, 2)
+  billingInterval BillingInterval
+  // Premium tiers can buy a reduced commission. Null means platform default.
+  commissionRate  Decimal?        @db.Decimal(5, 4)
+  isActive        Boolean         @default(true)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                    String             @id @default(cuid())
+  salonId               String             @unique
+  salon                 Salon              @relation(fields: [salonId], references: [id])
+  planId                String
+  plan                  Plan               @relation(fields: [planId], references: [id])
+  status                SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean            @default(false)
+  gatewaySubscriptionId String?            @unique
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([status])
 }
 
 model Review {

@@ -24,6 +24,16 @@ declare module "next-auth" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Auth.js derives `trustHost` from AUTH_URL / AUTH_TRUST_HOST / VERCEL /
+  // CF_PAGES / NODE_ENV !== "production" — it never reads NEXTAUTH_URL. Without
+  // this, every auth request in a production build throws UntrustedHost; `next
+  // dev` hides it because NODE_ENV isn't "production" there. Set explicitly so
+  // the app behaves the same self-hosted as it does on Vercel.
+  //
+  // Deliberately paired with *not* setting AUTH_URL/NEXTAUTH_URL: those route
+  // requests through Auth.js's reqWithEnvURL, which rebases req.url onto the env
+  // origin and would send next-intl's locale redirects to the wrong host.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/auth/login",

@@ -10,6 +10,9 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
+    // Pinned, not inferred. next-intl otherwise falls back to the server's clock,
+    // so a UTC container would render every booking time three hours off.
+    timeZone: "Asia/Riyadh",
     messages: (await import(`../../messages/${locale}.json`)).default,
   };
 });
