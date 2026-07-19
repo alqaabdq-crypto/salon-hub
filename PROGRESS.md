@@ -32,9 +32,9 @@ payments, as originally planned.
 | Milestone | Scope | Status |
 | --- | --- | --- |
 | M1 | Foundation — scaffold, auth, RBAC, i18n, MVP schema | ✅ Shipped (`9d59dad`) |
-| M1.1 | Review fixes — auth blocker, timezone, money, fonts, docs | ✅ Done · ⚠️ uncommitted |
-| M1.2 | Schema — bilingual catalog, multi-service bookings, revenue models | ✅ Done · ⚠️ uncommitted |
-| M2 | Customer marketplace — app shell, browse, search, salon detail | ✅ Done · ⚠️ uncommitted |
+| M1.1 | Review fixes — auth blocker, timezone, money, fonts, docs | ✅ Shipped (`10f4a5d`) |
+| M1.2 | Schema — bilingual catalog, multi-service bookings, revenue models | ✅ Shipped (`10f4a5d`) |
+| M2 | Customer marketplace — app shell, browse, search, salon detail | ✅ Shipped (`b0dfd0b`) |
 | M3 | Booking engine — availability, overlap prevention, booking flow | 🔴 Not started |
 | M4 | Salon owner + admin dashboards | 🔴 Not started |
 | M5 | Payments via Moyasar | 🔴 Not started |
@@ -47,33 +47,21 @@ payments, as originally planned.
 3. ✅ Browse and search — filter by city, gender focus, category, plus text search.
 4. ✅ Salon detail — services, team, opening hours, reviews.
 
-### Working tree
+### Branch
 
-M1.1, M1.2 and M2 are all complete and verified but **not yet committed** — three
-milestones' worth of work exists only as working-tree changes on `master`:
+M1.1, M1.2 and M2 are committed on **`feat/m2-marketplace`**, branched from
+`master` at `9d59dad`. `master` itself is unchanged — merge or fast-forward when
+ready:
 
-```
- M README.md
- M messages/ar.json
- M messages/en.json
- M prisma/schema.prisma
- M prisma/seed.ts
- M src/app/[locale]/layout.tsx
- M src/app/[locale]/page.tsx
- M src/app/globals.css
- M src/components/logout-button.tsx
- M src/i18n/request.ts
- M src/server/auth/config.ts
-?? PROGRESS.md
-?? prisma/migrations/20260719144659_money_precision_decimal_10_2/
-?? prisma/migrations/20260719145203_m2_bilingual_catalog_multiservice_bookings_revenue/
-?? src/app/[locale]/salons/
-?? src/components/locale-switcher.tsx
-?? src/components/site-header.tsx
-?? src/i18n/content.ts
+```bash
+git checkout master && git merge --ff-only feat/m2-marketplace
 ```
 
-They split cleanly into three commits along the M1.1 / M1.2 / M2 boundaries.
+Two commits, not the three the milestones suggest. `prisma/schema.prisma` and
+`src/app/[locale]/layout.tsx` each carry changes from more than one milestone, so
+an M1.1/M1.2 split would have produced a commit that does not build. They are
+squashed into `10f4a5d`; M2 is `b0dfd0b`. Both commits build standalone —
+verified that `10f4a5d` has no references to files introduced later.
 
 `.env` was also edited (`NEXTAUTH_URL` removed) but is gitignored, so **every
 deployed environment needs that variable removed by hand** — the repo cannot carry
