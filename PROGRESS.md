@@ -103,6 +103,13 @@ with Arabic subsetting so Arabic resolves per-glyph after Geist.
 **Docs.** `README.md` replaced (was create-next-app boilerplate) with setup steps,
 env-var rules, the role model, and the vision. This `PROGRESS.md` added.
 
+**`.env.example` had never been committed.** Found while staging `10f4a5d`:
+`.gitignore`'s `.env*` pattern matched the template too, so it was absent from the
+M1 commit and from every clone. The README's `cp .env.example .env` step would
+have failed for anyone setting the project up fresh. Fixed by negating the pattern
+(`!.env.example`) and adding the file. The real `.env` remains ignored — verified
+no secret files are tracked.
+
 ### M2 — schema
 
 Migration `20260719145203_m2_bilingual_catalog_multiservice_bookings_revenue`.
@@ -217,13 +224,32 @@ verified by running twice with identical counts. Salon owner logins are
   server before building.
 - Auth and i18n bugs here are invisible under `next dev`. Verify with
   `npm run build && npx next start`.
+- **No `.gitattributes`.** Git warns `LF will be replaced by CRLF` on every staged
+  file. Harmless for a single Windows developer, but the moment a second machine
+  touches the repo it produces phantom whole-file diffs. Add
+  `* text=auto eol=lf` before anyone else clones.
+- Testing Arabic from Git Bash on Windows is unreliable — the shell mangles UTF-8
+  arguments to `?` before curl sends them, which looks exactly like a broken
+  search query. Use percent-encoded URLs when testing Arabic input.
 
-## Suggested next steps
+## Picking up
 
-1. **First tests, before M3 rather than after.** The booking engine is where
-   overlap logic and money meet; it is the wrong place to still have zero coverage.
-2. **M3 booking engine.** Start with the overlap-constraint decision above
-   (denormalise `status` onto `BookingItem`, or enforce in the engine), since it
-   shapes the availability query.
+**State at end of 2026-07-19.** Everything through M2 is committed on
+`feat/m2-marketplace` (3 commits, `master` still at `9d59dad` and needs a merge).
+Working tree clean; typecheck, lint and build all pass. Local database is migrated
+and seeded — three approved salons, browsable at `/en/salons` and `/ar/salons`.
+
+**One decision is blocking M3** and is deliberately left open: overlap prevention
+needs `status` reachable from `BookingItem`, so either denormalise it onto the row
+or enforce cancellation-awareness in the availability engine. This shapes the whole
+availability query, so settle it before writing code. See P3 above.
+
+Suggested order:
+
+1. **Tests, before M3 rather than after.** The booking engine is where overlap
+   logic and money meet; it is the wrong place to still have zero coverage. M2 gives
+   something concrete to test against — filters, approval gating, locale fallback.
+2. **M3 booking engine**, once the constraint decision is made.
 3. Split the auth config so the proxy stops bundling Prisma.
 4. Pagination on browse, before the catalog grows past a screenful.
+5. Add `.gitattributes` before a second machine clones the repo.
