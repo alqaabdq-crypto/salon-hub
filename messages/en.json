@@ -2,9 +2,13 @@
   "Landing": {
     "title": "Salon Hub",
     "subtitle": "Find and book trusted salons across Saudi Arabia.",
-    "cta": "Get started"
+    "cta": "Get started",
+    "browse": "Browse salons"
   },
   "Nav": {
+    "brand": "Salon Hub",
+    "salons": "Salons",
+    "dashboard": "Dashboard",
     "login": "Log in",
     "register": "Sign up",
     "logout": "Log out"
@@ -37,5 +41,50 @@
   "Dashboard": {
     "welcome": "Welcome, {name}",
     "role": "Role: {role}"
+  },
+  "Salons": {
+    "title": "Salons",
+    "search": "Search",
+    "searchPlaceholder": "Salon name",
+    "city": "City",
+    "genderFocus": "For",
+    "category": "Service",
+    "all": "All",
+    "apply": "Apply",
+    "clear": "Clear filters",
+    "results": "{count, plural, =0 {No salons} one {# salon} other {# salons}}",
+    "empty": "No salons match your filters.",
+    "from": "From {price}",
+    "noPrices": "No services listed"
+  },
+  "GenderFocus": {
+    "MEN": "Men",
+    "WOMEN": "Women",
+    "UNISEX": "Unisex"
+  },
+  "Salon": {
+    "services": "Services",
+    "team": "Team",
+    "hours": "Opening hours",
+    "reviews": "Reviews",
+    "minutes": "{count} min",
+    "book": "Book",
+    "bookingSoon": "Booking opens soon",
+    "noServices": "No services listed yet.",
+    "noStaff": "No team members listed yet.",
+    "noReviews": "No reviews yet.",
+    "closed": "Closed",
+    "reviewCount": "{count, plural, =0 {No reviews} one {# review} other {# reviews}}",
+    "notFound": "Salon not found",
+    "notFoundBody": "This salon may have been removed or is not yet approved."
+  },
+  "Day": {
+    "MON": "Monday",
+    "TUE": "Tuesday",
+    "WED": "Wednesday",
+    "THU": "Thursday",
+    "FRI": "Friday",
+    "SAT": "Saturday",
+    "SUN": "Sunday"
   }
 }
