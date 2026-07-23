@@ -8,6 +8,40 @@ const prisma = new PrismaClient({ adapter });
 
 const WEEK: DayOfWeek[] = ["SAT", "SUN", "MON", "TUE", "WED", "THU"];
 
+// These defaults are printed in the README, so anyone who can reach a seeded
+// deployment knows them — including the ADMIN account, which can approve and
+// suspend salons. Fine on a laptop, an open door anywhere else.
+const DEFAULT_ADMIN_PASSWORD = "admin1234";
+const DEFAULT_OWNER_PASSWORD = "owner1234";
+
+const adminPassword = process.env.SEED_ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+const ownerPassword = process.env.SEED_OWNER_PASSWORD || DEFAULT_OWNER_PASSWORD;
+
+/**
+ * Refuses to seed a remote database with the published passwords.
+ *
+ * The check is the database host rather than NODE_ENV, because `prisma db seed`
+ * is usually run by hand or from a deploy step where NODE_ENV says nothing
+ * useful. A connection leaving this machine is the thing that makes a documented
+ * password dangerous.
+ */
+function assertSafeCredentials() {
+  const url = process.env.DATABASE_URL ?? "";
+  const isLocal = /@(localhost|127\.0\.0\.1|host\.docker\.internal|postgres)[:/]/.test(url);
+
+  if (isLocal) return;
+
+  const usingDefaults =
+    adminPassword === DEFAULT_ADMIN_PASSWORD || ownerPassword === DEFAULT_OWNER_PASSWORD;
+
+  if (usingDefaults) {
+    throw new Error(
+      "Refusing to seed a non-local database with the passwords published in the README.\n" +
+        "Set SEED_ADMIN_PASSWORD and SEED_OWNER_PASSWORD to something private first.",
+    );
+  }
+}
+
 type ServiceSeed = {
   slug: string;
   nameEn: string;
@@ -118,7 +152,9 @@ const salons: SalonSeed[] = [
 ];
 
 async function main() {
-  const passwordHash = await bcrypt.hash("admin1234", 10);
+  assertSafeCredentials();
+
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   await prisma.user.upsert({
     where: { email: "admin@salonhub.sa" },
@@ -168,7 +204,7 @@ async function main() {
     categoryBySlug.set(category.slug, row.id);
   }
 
-  const ownerPasswordHash = await bcrypt.hash("owner1234", 10);
+  const ownerPasswordHash = await bcrypt.hash(ownerPassword, 10);
 
   for (const seed of salons) {
     const owner = await prisma.user.upsert({
