@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/content";
 import { prisma } from "@/server/db/prisma";
 import type { DayOfWeek } from "@/generated/prisma/enums";
@@ -121,13 +122,13 @@ export default async function SalonPage({ params }: Props) {
                       maximumFractionDigits: 0,
                     })}
                   </span>
-                  {/* Booking flow lands in M3. */}
-                  <span
-                    className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
-                    title={t("bookingSoon")}
+                  {/* Preselects this service; more can be added on the form. */}
+                  <Link
+                    href={`/salons/${salon.slug}/book?services=${service.id}`}
+                    className="rounded-full border border-gray-300 px-3 py-1 text-xs hover:border-gray-500 dark:border-gray-700 dark:hover:border-gray-400"
                   >
-                    {t("bookingSoon")}
-                  </span>
+                    {t("book")}
+                  </Link>
                 </div>
               </li>
             ))}

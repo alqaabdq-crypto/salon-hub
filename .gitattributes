@@ -1,0 +1,3 @@
+# Normalise line endings in the repo to LF. Without this, a Windows checkout
+# stages CRLF and a second machine sees phantom whole-file diffs.
+* text=auto eol=lf

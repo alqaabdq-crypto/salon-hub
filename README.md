@@ -80,7 +80,38 @@ only authorization layer, so **do not remove the layout checks**.
 Role matching is currently strict equality — an `ADMIN` cannot view `/account` or
 `/owner`.
 
-## Testing auth changes
+## Booking
+
+The booking engine lives in `src/server/booking/`:
+
+| File | Role |
+| --- | --- |
+| `time.ts` | The only place Riyadh wall time and UTC instants meet. Fixed UTC+3 — Saudi Arabia has never observed DST. |
+| `availability.ts` | Pure slot search. No Prisma, no clock, so it is unit-tested exhaustively. |
+| `schedule.ts` | Loads staff, shifts, time off and existing bookings, then calls the engine. |
+| `actions.ts` | Server Actions to create and cancel a booking. |
+
+Two staff members cannot be double-booked, and the guarantee is in the database,
+not only in the query: a partial `btree_gist` EXCLUDE constraint on
+`BookingItem (staffId, tsrange(startTime, endTime))` covering `PENDING` and
+`CONFIRMED` rows. That is why `BookingItem` carries a denormalised `status` —
+which makes one rule mandatory:
+
+> **Any code path that changes `Booking.status` must change its
+> `BookingItem.status` rows in the same transaction.**
+
+Miss it and cancelled visits go on reserving staff for ever.
+
+The whole customer flow works without client JavaScript: selection lives in the
+URL, and each slot is its own form.
+
+## Testing
+
+```bash
+npm test          # vitest, unit tests over the pure booking modules
+npm run typecheck # tsc --noEmit
+npm run lint
+```
 
 Auth and i18n bugs in this stack tend to be invisible under `next dev`, because
 `NODE_ENV !== "production"` changes how Auth.js derives `trustHost`. Verify
@@ -91,7 +122,10 @@ npm run build && npx next start
 ```
 
 `next dev` and `next build` both write to `.next/` and will collide on Windows —
-stop the dev server before building.
+stop the dev server before building. If the project lives inside a OneDrive
+folder, check `find .next -name "*DESKTOP*"` after building: any hit means
+OneDrive conflict-renamed part of the build and the server will serve stale
+code without erroring. See PROGRESS.md for the workaround.
 
 ## Project layout
 
@@ -104,4 +138,5 @@ src/components/    ui primitives, dashboard shell
 src/i18n/          next-intl routing, request config, navigation
 src/proxy.ts       optimistic auth + locale routing (Next 16 "Proxy")
 src/server/        auth config, RBAC helper, Prisma client
+src/server/booking availability engine and booking actions
 ```

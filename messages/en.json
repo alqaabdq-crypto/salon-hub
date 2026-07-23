@@ -42,6 +42,40 @@
     "welcome": "Welcome, {name}",
     "role": "Role: {role}"
   },
+  "Account": {
+    "greeting": "Welcome, {name}",
+    "booked": "Booking requested. The salon will confirm it shortly.",
+    "upcoming": "Upcoming bookings",
+    "past": "Past bookings",
+    "none": "You have no upcoming bookings.",
+    "browse": "Browse salons",
+    "with": "with {staff}",
+    "total": "Total {price}",
+    "cancel": "Cancel booking"
+  },
+  "Booking": {
+    "title": "Book at {salon}",
+    "chooseServices": "Choose services",
+    "minutes": "{count} min",
+    "date": "Date",
+    "showTimes": "Show times",
+    "summary": "{count, plural, one {# service} other {# services}} · {duration} min · {price}",
+    "times": "Available times",
+    "pickServices": "Choose at least one service to see available times.",
+    "noTimes": "No times available on this day. Try another date.",
+    "signInToBook": "Log in to book one of these times.",
+    "customersOnly": "Bookings are made from a customer account.",
+    "error_taken": "That time was booked a moment ago. Please choose another.",
+    "error_unavailable": "That time is no longer available. Please choose another.",
+    "error_date": "Choose a date within the next {days} days."
+  },
+  "BookingStatus": {
+    "PENDING": "Awaiting confirmation",
+    "CONFIRMED": "Confirmed",
+    "CANCELLED": "Cancelled",
+    "COMPLETED": "Completed",
+    "NO_SHOW": "Missed"
+  },
   "Salons": {
     "title": "Salons",
     "search": "Search",
@@ -69,7 +103,6 @@
     "reviews": "Reviews",
     "minutes": "{count} min",
     "book": "Book",
-    "bookingSoon": "Booking opens soon",
     "noServices": "No services listed yet.",
     "noStaff": "No team members listed yet.",
     "noReviews": "No reviews yet.",

@@ -257,25 +257,28 @@ model Booking {
 // several people. Price and duration are snapshots taken at booking time —
 // repricing a Service must never rewrite booking history.
 //
-// Overlap prevention (btree_gist EXCLUDE on staffId + time range) belongs here,
-// not on Booking, and is deferred to the booking-engine milestone. It needs a
-// raw-SQL migration, and it has to be partial so CANCELLED visits stop blocking
-// slots — which means `status` has to be reachable from this row. Decide between
-// denormalising status onto the item or enforcing it in the availability engine
-// before writing that migration.
+// `status` is denormalised from the parent Booking (M3 decision) so overlap
+// prevention can live in the database, not just the app: a partial `btree_gist`
+// EXCLUDE constraint (staffId + time range) rejects any second item that
+// double-books a staff member, and being partial it only counts blocking
+// statuses (PENDING/CONFIRMED) so cancelled visits free their slot. The
+// constraint and the `btree_gist` extension are raw SQL, appended to this
+// model's migration. Every mutation that changes a Booking's status MUST update
+// its items' status in the same transaction to keep the two in step.
 model BookingItem {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   bookingId       String
-  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   serviceId       String
-  service         Service  @relation(fields: [serviceId], references: [id])
+  service         Service       @relation(fields: [serviceId], references: [id])
   staffId         String
-  staff           Staff    @relation(fields: [staffId], references: [id])
+  staff           Staff         @relation(fields: [staffId], references: [id])
   startTime       DateTime
   endTime         DateTime
   durationMinutes Int
-  price           Decimal  @db.Decimal(10, 2)
+  price           Decimal       @db.Decimal(10, 2)
   position        Int
+  status          BookingStatus @default(PENDING)
 
   @@unique([bookingId, position])
   @@index([bookingId])

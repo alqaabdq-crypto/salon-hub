@@ -1,6 +1,6 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-07-19
+**Last updated:** 2026-07-23
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
@@ -35,7 +35,7 @@ payments, as originally planned.
 | M1.1 | Review fixes — auth blocker, timezone, money, fonts, docs | ✅ Shipped (`10f4a5d`) |
 | M1.2 | Schema — bilingual catalog, multi-service bookings, revenue models | ✅ Shipped (`10f4a5d`) |
 | M2 | Customer marketplace — app shell, browse, search, salon detail | ✅ Shipped (`b0dfd0b`) |
-| M3 | Booking engine — availability, overlap prevention, booking flow | 🔴 Not started |
+| M3 | Booking engine — availability, overlap prevention, booking flow | ✅ Shipped |
 | M4 | Salon owner + admin dashboards | 🔴 Not started |
 | M5 | Payments via Moyasar | 🔴 Not started |
 
@@ -67,8 +67,91 @@ verified that `10f4a5d` has no references to files introduced later.
 deployed environment needs that variable removed by hand** — the repo cannot carry
 that change for you.
 
-The two migrations are already applied to the local database. Anyone pulling these
-changes runs `npx prisma migrate dev` to catch up.
+M3 sits on the same branch. All migrations are already applied to the local
+database; anyone pulling these changes runs `npx prisma migrate dev` to catch up.
+The M3 migration creates the `btree_gist` extension, which needs a role that may
+create extensions — on a managed Postgres that is not always the app's own user.
+
+---
+
+## Completed 2026-07-23
+
+### The blocking decision, settled
+
+Overlap prevention needed `status` reachable from `BookingItem`. **Decision:
+denormalise it.** `BookingItem.status` now mirrors its parent booking, which lets
+the constraint live in the database:
+
+```sql
+EXCLUDE USING gist ("staffId" WITH =, tsrange("startTime", "endTime", '[)') WITH &&)
+  WHERE ("status" IN ('PENDING', 'CONFIRMED'))
+```
+
+`tsrange`, not `tstzrange`, because Prisma maps `DateTime` to `timestamp(3)`
+without a zone. `'[)'` so a visit ending at 12:00 does not collide with one
+starting at 12:00. Partial, so a cancelled visit releases its slot and completed
+history never blocks future bookings.
+
+**The cost of the decision:** two rows now carry the same truth. Every mutation
+that changes a booking's status *must* change its items' status in the same
+transaction — `cancelBooking` does. The M4 owner dashboard (confirm, complete,
+no-show) has to honour the same rule, or cancelled visits will go on reserving
+staff. `BLOCKING_STATUSES` in `src/server/booking/schedule.ts` is the list the
+constraint enforces; the two must stay in step.
+
+The alternative — enforcing it only in the availability query — was rejected:
+two customers can pass the same check concurrently and both insert.
+
+### Availability engine
+
+Split three ways so the logic is testable without a database:
+
+- `src/server/booking/time.ts` — the only place Riyadh wall time and UTC instants
+  meet. Fixed UTC+3: Saudi Arabia has never observed DST, so the offset is exact,
+  not an approximation, and the engine stays free of the timezone database.
+- `src/server/booking/availability.ts` — pure. Takes intervals in minutes past
+  Riyadh midnight, gives slots out. Values outside 0–1440 are legal and load-
+  bearing: a visit that started yesterday appears as a negative start and still
+  blocks this morning.
+- `src/server/booking/schedule.ts` — loads rows, calls the engine.
+
+Multi-service visits run back to back, and a member committed to one service
+never constrains a later one, so **no backtracking is needed** — first qualified
+free member per service, in a stable order. A visit can span several people.
+
+### Booking flow
+
+`/[locale]/salons/[slug]/book` — services and date in the URL as a plain GET
+form, then one small POST form per slot. **No client JavaScript anywhere in the
+flow**; it works with JS disabled, and the basket survives a reload, a language
+switch, or being shared. `/account` lists upcoming and past bookings and cancels
+them.
+
+The action recomputes availability from scratch and uses the posted start only to
+pick which slot it just derived is wanted — the posted times are never written.
+A slot taken between render and submit redirects back with `error=unavailable`;
+one taken between the check and the insert is caught as the constraint violation
+and redirects with `error=taken`.
+
+### Tests
+
+Vitest, `npm test`. 32 unit tests over the two pure modules — half-open interval
+edges, split shifts, unqualified staff, overnight spillover, DST-free offset,
+impossible dates. `npm run typecheck` added too.
+
+### Verified
+
+Against the seeded database and a production build:
+
+- 15 database-level checks — the EXCLUDE constraint rejects an overlapping item
+  and permits a back-to-back one; a cancelled item stops reserving its slot;
+  Friday offers nothing; a past date offers nothing; today is cut off at the
+  current minute.
+- 17 end-to-end HTTP checks over the no-JS path — register, credentials login,
+  book, appear in `/account`, cancel, Arabic RTL.
+- 7 exhaustion checks — one booking at 10:00 does *not* remove the slot (the
+  second stylist absorbs it), a second one does, and a stale post of the taken
+  slot is refused rather than double-booked.
 
 ---
 
@@ -167,6 +250,15 @@ verified by running twice with identical counts. Salon owner logins are
 
 ## Open issues
 
+### 🔴 P0 — a booking is a free, permanent hold
+
+Nothing expires a `PENDING` booking and nothing charges for one. A signed-in
+customer can reserve every slot a salon has, indefinitely, at no cost, and the
+EXCLUDE constraint will faithfully keep anyone else out. This is only safe while
+the seeded data is the only data. Before real listings, it needs at minimum a
+hold expiry, and properly it needs M5 payments (deposit at booking) plus per-
+customer rate limiting.
+
 ### 🟠 P1
 
 - **Prisma and bcryptjs are bundled into the proxy**, which runs on every
@@ -186,21 +278,38 @@ verified by running twice with identical counts. Salon owner logins are
   nothing renders them yet — cards and detail pages are text-only.
 - Role matching is strict equality, so an `ADMIN` cannot view `/account` or
   `/owner`. Fine if deliberate, awkward for support work.
-- **No tests**, heading into a booking engine with overlap logic and money.
+- **A booking stays `PENDING` forever.** Nothing moves it to `CONFIRMED`,
+  `COMPLETED` or `NO_SHOW` — that is the M4 owner dashboard. Until then the
+  status badge always reads "Awaiting confirmation".
+- **No booking notifications.** The customer sees a banner and nothing else; the
+  salon is not told at all. SMS/WhatsApp is near-mandatory in this market.
+- **Bookings can be made up to the current minute**, and cancelled up to the
+  moment they end. Both want a product-decided lead time.
+- Staff assignment takes the first free qualified member in name order, so the
+  alphabetically-first stylist absorbs most of the load. Fine for correctness,
+  poor for fairness — balance by load when it matters.
+- `createBooking` accepts a `notes` field that no UI sends: one form per slot
+  leaves nowhere to type it. Needs a confirmation step between slot and booking.
+- The same service twice in one visit is rejected (the engine matches staff by
+  service id, so a repeat is indistinguishable). Two haircuts for two people is a
+  real request; it needs a quantity or a per-item identity.
+- Availability is recomputed on every render of the booking page, uncached.
+  Cheap at three salons; a `findMany` per staff member per page view later.
+- **Only the pure modules have tests.** `schedule.ts` and the actions are covered
+  by the throwaway scripts described above, not by anything that runs in CI.
 
 ### 🔵 P3 — deferred schema decisions
 
-- **Overlap prevention.** The `btree_gist` EXCLUDE constraint belongs on
-  `BookingItem` (staff + time range), not `Booking`. Still deferred to M3, and it
-  has a wrinkle: it must be *partial* so `CANCELLED` visits stop blocking slots,
-  which means `status` has to be reachable from the item row. Decide between
-  denormalising status onto `BookingItem` or enforcing it in the availability
-  engine before writing that migration.
 - Working hours exist only on `Staff`, never on `Salon`; availability needs both.
-  The salon detail page currently works around this by showing the **union** of
-  staff hours — the widest window anyone is available. That is a display
-  approximation, not opening hours, and it will diverge from reality the moment a
-  salon's posted hours differ from its team's shifts.
+  The salon detail page works around this by showing the **union** of staff
+  hours — the widest window anyone is available. That is a display approximation,
+  not opening hours, and it will diverge the moment a salon's posted hours differ
+  from its team's shifts. The booking engine has the same gap from the other
+  side: it derives the bookable window purely from shifts, so a salon that closes
+  early while one stylist stays late will sell slots after closing.
+- `Prisma.Decimal` is used for money in the booking action, but the availability
+  layer passes prices around as strings and the UI formats through `Number()`.
+  Consistent enough at two decimal places; worth unifying before M5.
 - `Staff` has no gender field despite `GenderFocus` on salons — likely required
   for women's salons in this market.
 - `lat` / `lng` unindexed and `city` is free text — "salons near me" will not scale.
@@ -217,39 +326,69 @@ verified by running twice with identical counts. Salon owner logins are
 
 ## Environment notes
 
-- **Building inside OneDrive causes intermittent `EPERM` on `.next`.** OneDrive
-  holds file handles while syncing. `rm -rf .next` and rebuild, or exclude
-  `.next` from sync — or move the project outside the synced folder.
+- **Building inside OneDrive silently serves stale code.** Worse than the `EPERM`
+  noted below, and it cost most of an hour on 2026-07-23. OneDrive treats files
+  the build is writing under `.next` as edit conflicts: it renames the new file
+  to `<name>-DESKTOP-XXXXXXX.js` and restores the *previous* version under the
+  original name. The build reports success, `next start` then serves a mix of new
+  and old chunks, and nothing anywhere errors. The symptom was an Arabic page
+  rendering `Booking.title` — a message catalog chunk from the last build paired
+  with this build's page code.
+  - **Detect it:** `find .next -name "*DESKTOP*"` after a build. Any hit means
+    the build output is untrustworthy.
+  - **Fix it:** verify from a copy outside the synced tree. `distDir` does not
+    help — Turbopack rejects a path that navigates out of the project root:
+    ```bash
+    tar cf - --exclude=node_modules --exclude=.next --exclude=.git . \
+      | (mkdir -p /c/temp/salon-hub-verify && cd /c/temp/salon-hub-verify && tar xf -)
+    cd /c/temp/salon-hub-verify && npm install && npm run build && npx next start -p 3111
+    ```
+    A junction back to the real `node_modules` does not work either — Turbopack
+    refuses a symlink pointing out of the project root. It needs its own install.
+- **`EPERM` on `.next`** for the same underlying reason: OneDrive holds handles
+  while syncing. `rm -rf .next` and rebuild.
 - `next dev` and `next build` both write to `.next/` and collide. Stop the dev
   server before building.
 - Auth and i18n bugs here are invisible under `next dev`. Verify with
   `npm run build && npx next start`.
-- **No `.gitattributes`.** Git warns `LF will be replaced by CRLF` on every staged
-  file. Harmless for a single Windows developer, but the moment a second machine
-  touches the repo it produces phantom whole-file diffs. Add
-  `* text=auto eol=lf` before anyone else clones.
+- `.gitattributes` now pins `* text=auto eol=lf`, so the CRLF warnings on staging
+  no longer mean phantom diffs for the next machine to clone.
 - Testing Arabic from Git Bash on Windows is unreliable — the shell mangles UTF-8
   arguments to `?` before curl sends them, which looks exactly like a broken
-  search query. Use percent-encoded URLs when testing Arabic input.
+  search query. Use percent-encoded URLs when testing Arabic input, and assert on
+  Arabic *output* from a `.mjs` file rather than `grep`/`node -e` with the string
+  inline, which mangles it the same way.
+- **Server Action forms post `multipart/form-data`.** Driving the no-JS path with
+  curl needs `-F`, not `--data-urlencode`; a urlencoded post is ignored and the
+  page simply re-renders as though nothing happened. The action id travels as an
+  empty hidden field named `$ACTION_ID_<hash>`, which the rendered HTML contains.
+- **next-intl serialises the whole message catalog into the HTML.** Grepping a
+  page for an English string can match the untranslated catalog rather than
+  anything rendered — anchor assertions on markup (`>Cancelled<`) instead.
 
 ## Picking up
 
-**State at end of 2026-07-19.** Everything through M2 is committed on
-`feat/m2-marketplace` (3 commits, `master` still at `9d59dad` and needs a merge).
-Working tree clean; typecheck, lint and build all pass. Local database is migrated
-and seeded — three approved salons, browsable at `/en/salons` and `/ar/salons`.
+**State at end of 2026-07-23.** Everything through M3 is committed on
+`feat/m2-marketplace` (`master` still at `9d59dad` and needs a merge). Working
+tree clean; typecheck, lint, build and 32 tests all pass. Local database is
+migrated and seeded, and holds no bookings — the verification runs cleaned up
+after themselves.
 
-**One decision is blocking M3** and is deliberately left open: overlap prevention
-needs `status` reachable from `BookingItem`, so either denormalise it onto the row
-or enforce cancellation-awareness in the availability engine. This shapes the whole
-availability query, so settle it before writing code. See P3 above.
+**Nothing is blocking M4.** The overlap decision that blocked M3 is settled and
+implemented; its consequence is the rule that M4 has to obey: *any code path
+that changes `Booking.status` changes its `BookingItem.status` in the same
+transaction.* The owner dashboard is exactly where that rule will first be
+tested, since confirm/complete/no-show all move status.
 
 Suggested order:
 
-1. **Tests, before M3 rather than after.** The booking engine is where overlap
-   logic and money meet; it is the wrong place to still have zero coverage. M2 gives
-   something concrete to test against — filters, approval gating, locale fallback.
-2. **M3 booking engine**, once the constraint decision is made.
+1. **M4 salon owner dashboard**, starting with confirm/cancel on a booking — it
+   closes the loop M3 opened, since every booking currently sits at `PENDING`
+   with nobody able to act on it.
+2. **Hold expiry** (P0 above). Even before payments, a `PENDING` booking older
+   than some window should stop reserving staff, or one account can freeze a
+   salon's calendar for free.
 3. Split the auth config so the proxy stops bundling Prisma.
 4. Pagination on browse, before the catalog grows past a screenful.
-5. Add `.gitattributes` before a second machine clones the repo.
+5. Salon-level opening hours, which both the detail page and the booking engine
+   are currently approximating from staff shifts.
