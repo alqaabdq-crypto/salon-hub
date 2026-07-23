@@ -1,10 +1,43 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-07-23 (second session)
+**Last updated:** 2026-07-24
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
 listing, staff and schedule; admins verify salons before they go live.
+
+---
+
+## ▶ Last request and answer
+
+> **Read this first when reviewing this report, and lead with it.** Standing
+> instruction from the project owner: begin a review by stating what was last
+> asked for and what the answer was, before anything else.
+
+**Asked (2026-07-23):** *"deploy this in URL so i can browse it"* — then, when I
+raised the account problem, *"need to browse the URL to check the work you have
+created."*
+
+**Answered:** A real deployment was not possible unattended — every host needs an
+account, and this machine has none (`gh` not logged in, no Vercel/Railway/Fly
+CLI, no tokens anywhere). So the request was split:
+
+1. **Deployment readiness — done.** Found and fixed a genuine blocker: the
+   generated Prisma client is gitignored, so a cloud build from a fresh clone
+   would have failed. `build` now runs `prisma generate` first, verified by
+   cloning the repo clean and building it with no `DATABASE_URL` at all. Also
+   merged `master` up to the full product, and stopped the seed writing the
+   README's public passwords to any remote database.
+2. **A browsable URL — delivered, but not a deployment.** A Cloudflare quick
+   tunnel to a production build running on the project owner's own laptop:
+   `https://sally-obituaries-pull-twenty.trycloudflare.com`. No account needed,
+   live in minutes. **It dies when that machine sleeps** and it exposes the
+   laptop and its local database to the public internet — both stated at the
+   time, and the request was reaffirmed after hearing them.
+
+**Still owed:** the durable URL. Vercel + Neon is roughly fifteen minutes of
+work, all of it blocked on two things only the owner can do — one `vercel login`
+and a Neon connection string. See "Deployment" below.
 
 ---
 
@@ -54,13 +87,13 @@ attempted. See "What is genuinely not done" below.
 
 ### Branch
 
-M1.1, M1.2 and M2 are committed on **`feat/m2-marketplace`**, branched from
-`master` at `9d59dad`. `master` itself is unchanged — merge or fast-forward when
-ready:
+**`master` now holds everything**, fast-forwarded from `feat/m2-marketplace` on
+2026-07-23 as part of getting the project deployable — a host deploys the default
+branch, and that branch was still sitting on M1. Both refs point at the same
+commit; `feat/m2-marketplace` is kept only as a historical label and can be
+deleted.
 
-```bash
-git checkout master && git merge --ff-only feat/m2-marketplace
-```
+The M1-era note below is retained because it explains the commit shape:
 
 Two commits, not the three the milestones suggest. `prisma/schema.prisma` and
 `src/app/[locale]/layout.tsx` each carry changes from more than one milestone, so
@@ -362,6 +395,63 @@ verified by running twice with identical counts. Salon owner logins are
 
 ---
 
+## Deployment
+
+**Status: ready to deploy, never deployed.** The only browsable URL so far has
+been a tunnel to a laptop (see the top of this file).
+
+### What was fixed to make deployment possible
+
+- **The build now generates the Prisma client.** `/src/generated/prisma` is
+  gitignored, so a fresh clone — which is exactly what a cloud builder starts
+  from — had no client and could not compile. `build` is now
+  `prisma generate && next build`. `prisma generate` needs no database
+  connection, so it is safe at build time. Verified by cloning the repo to a
+  clean directory, installing, and building with `DATABASE_URL` unset entirely.
+- **The seed refuses to publish its own passwords.** `admin1234` / `owner1234`
+  are printed in the README, and the admin account can approve and suspend
+  salons. Seeding a non-local database now throws unless `SEED_ADMIN_PASSWORD`
+  and `SEED_OWNER_PASSWORD` are set. The check is the host in `DATABASE_URL`,
+  not `NODE_ENV` — the seed is usually run by hand, where `NODE_ENV` says
+  nothing useful.
+- **`master` was fast-forwarded** to the full product. A host deploys the
+  default branch, and it was still on M1.
+
+### To get a durable URL (Vercel + Neon)
+
+Blocked on two steps only the project owner can perform; everything after them is
+mechanical.
+
+1. `vercel login` — interactive, browser-based.
+2. Create a free Neon Postgres and take the connection string. Neon supports the
+   `btree_gist` extension the M3 migration needs, which is the thing most likely
+   to fail on a managed database.
+3. Set env vars on the project: `DATABASE_URL`, `AUTH_SECRET` (`npx auth secret`),
+   `SEED_ADMIN_PASSWORD`, `SEED_OWNER_PASSWORD`. **Do not set `AUTH_URL` or
+   `NEXTAUTH_URL`** — see the rule in the README; it breaks locale redirects on
+   any host whose origin differs.
+4. `npm run db:deploy` then `npm run db:seed` against the remote URL.
+5. `vercel deploy --prod`.
+
+Migrations are deliberately *not* in the build command. `prisma migrate deploy`
+during a build means every preview deployment mutates the shared database, and
+the `btree_gist` extension needs a role permitted to create extensions — a
+failure better seen once, run by hand, than buried in build logs.
+
+### The tunnel, for reference
+
+```bash
+cd /c/temp/salon-hub-live && npx next start -p 3111     # production build, outside OneDrive
+/c/temp/cloudflared.exe tunnel --url http://localhost:3111 --no-autoupdate
+```
+
+Quick tunnels need no Cloudflare account and mint a random `*.trycloudflare.com`
+hostname per run — the URL changes every time, so it cannot be bookmarked. Auth
+worked through it unmodified because `trustHost: true` is set and no `AUTH_URL`
+is pinned; the login redirects came back on the tunnel hostname, not localhost.
+
+---
+
 ## What is genuinely not done
 
 The milestone table says shipped; this says what "shipped" does not mean.
@@ -376,9 +466,11 @@ The milestone table says shipped; this says what "shipped" does not mean.
   schema has held `Review` since M1, but nothing creates one — and `avgRating` /
   `reviewCount` are denormalised with nothing maintaining them.
 - **Nothing has ever been deployed.** No hosting, no CI, no migrations run
-  anywhere but this laptop. The `btree_gist` extension in the M3 migration needs
-  a role permitted to create extensions, which on managed Postgres is often not
-  the application's own user.
+  anywhere but this laptop — the public URL so far was a tunnel *to* this laptop,
+  which is not the same thing and proves nothing about a cloud environment. The
+  `btree_gist` extension in the M3 migration needs a role permitted to create
+  extensions, which on managed Postgres is often not the application's own user.
+  The repo is now deploy-*ready* (see "Deployment"); it has never been deploy-*ed*.
 - **No notifications.** Neither the customer nor the salon is told anything
   outside the web UI. SMS/WhatsApp is near-mandatory in this market.
 - **No photo uploads.** `coverImageUrl` and `SalonPhoto` are modelled; no page
@@ -495,31 +587,38 @@ The milestone table says shipped; this says what "shipped" does not mean.
 
 ## Picking up
 
-**State at end of 2026-07-23.** All five milestones are committed on
-`feat/m2-marketplace` (`master` still at `9d59dad` and needs a merge). Working
-tree clean; typecheck, lint, build and 43 tests all pass. Local database is
-migrated and seeded, and holds no bookings, salons beyond the three seeded, or
-test users — every verification run cleaned up after itself.
+**State at 2026-07-24.** All five milestones are on **`master`** at `cee05ef`.
+Working tree clean; typecheck, lint, build and 43 tests all pass. Local database
+is migrated and seeded, and holds no bookings, no salons beyond the three seeded,
+and no test users — every verification run cleaned up after itself.
 
-The whole product now works end to end locally: a salon owner can sign up, get
+The whole product works end to end locally: a salon owner can sign up, get
 approved, list services and staff, and take a booking a customer made on a phone,
-confirm it, and be paid for it.
+confirm it, and be paid for it. It is also deploy-ready, and has never been
+deployed.
 
-**The one thing that has never been tested for real is Moyasar.** Before
-anything else, get test keys from the Moyasar dashboard, put
-`MOYASAR_SECRET_KEY` and `MOYASAR_WEBHOOK_SECRET` in `.env`, point a webhook at
-`/api/payments/moyasar/webhook`, and run one booking through. Everything
-downstream of that call is verified; the call itself is not.
+**Two things have never been exercised for real, and both need an account the
+project owner holds:**
+
+- **Moyasar.** Get test keys, set `MOYASAR_SECRET_KEY` and
+  `MOYASAR_WEBHOOK_SECRET`, point a webhook at `/api/payments/moyasar/webhook`,
+  run one booking through. Everything downstream of that call is verified; the
+  call itself is not.
+- **A real host.** See "Deployment" — blocked on `vercel login` and a Neon
+  connection string, nothing else.
 
 Suggested order:
 
-1. **One real Moyasar test payment**, as above. Everything else here is
-   speculation until that round-trips.
-2. **Reviews a customer can write** — the only visible feature from the original
+1. **Deploy to Vercel + Neon.** Now the top item: a tunnel to a laptop is not a
+   deployment, and the `btree_gist` extension is the likely first surprise on
+   managed Postgres. The prep is done, so this is mostly waiting on two logins.
+2. **One real Moyasar test payment.** Everything about payments is speculation
+   until that round-trips — and it is easier to point a gateway webhook at a
+   stable public URL than at a tunnel that changes hostname every run, which is
+   why this now comes second rather than first.
+3. **Reviews a customer can write** — the only visible feature from the original
    plan with no implementation behind it, and `avgRating` needs maintaining when
    it lands.
-3. **Deploy something.** Nothing has run outside this laptop; the `btree_gist`
-   extension is the likely first surprise on managed Postgres.
 4. Split the auth config so the proxy stops bundling Prisma.
 5. Pagination on browse, before the catalog grows past a screenful.
 6. Salon-level opening hours, which both the detail page and the booking engine
