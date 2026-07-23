@@ -35,7 +35,7 @@ payments, as originally planned.
 | M1.1 | Review fixes — auth blocker, timezone, money, fonts, docs | ✅ Shipped (`10f4a5d`) |
 | M1.2 | Schema — bilingual catalog, multi-service bookings, revenue models | ✅ Shipped (`10f4a5d`) |
 | M2 | Customer marketplace — app shell, browse, search, salon detail | ✅ Shipped (`b0dfd0b`) |
-| M3 | Booking engine — availability, overlap prevention, booking flow | ✅ Shipped |
+| M3 | Booking engine — availability, overlap prevention, booking flow | ✅ Shipped (`2b86988`) |
 | M4 | Salon owner + admin dashboards | 🔴 Not started |
 | M5 | Payments via Moyasar | 🔴 Not started |
 
