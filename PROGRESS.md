@@ -36,8 +36,8 @@ payments, as originally planned.
 | M1.2 | Schema — bilingual catalog, multi-service bookings, revenue models | ✅ Shipped (`10f4a5d`) |
 | M2 | Customer marketplace — app shell, browse, search, salon detail | ✅ Shipped (`b0dfd0b`) |
 | M3 | Booking engine — availability, overlap prevention, booking flow | ✅ Shipped (`2b86988`) |
-| M4 | Salon owner + admin dashboards | ✅ Shipped |
-| M5 | Payments via Moyasar | ✅ Shipped — needs live keys to exercise |
+| M4 | Salon owner + admin dashboards | ✅ Shipped (`ee46d52`) |
+| M5 | Payments via Moyasar | ✅ Shipped (`ee46d52`) — needs live keys to exercise |
 
 **All seven original milestones are now covered.** M6 (reviews) and M7 (polish,
 SEO, deploy) from the first plan were folded into the renumbering: review display
