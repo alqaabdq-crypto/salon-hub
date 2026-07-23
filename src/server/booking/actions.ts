@@ -10,6 +10,8 @@ import {
   BOOKING_HORIZON_DAYS,
   getDayAvailability,
 } from "@/server/booking/schedule";
+import { setBookingStatus } from "@/server/booking/status";
+import { refundIfPaid } from "@/server/payments/service";
 import {
   addDays,
   isIsoDate,
@@ -213,22 +215,24 @@ export async function cancelBooking(formData: FormData): Promise<void> {
     select: { id: true },
   });
 
+  // setBookingStatus keeps Booking and BookingItem in step — the items are what
+  // the EXCLUDE constraint reads, so a cancellation that missed them would go on
+  // reserving staff for a visit that is not happening.
+  let refundError: string | undefined;
+
   if (booking) {
-    // Both rows or neither. If the items kept a blocking status they would go
-    // on reserving staff for a visit that is no longer happening — the
-    // EXCLUDE constraint reads BookingItem.status, not Booking.status.
-    await prisma.$transaction([
-      prisma.booking.update({
-        where: { id: booking.id },
-        data: { status: "CANCELLED" },
-      }),
-      prisma.bookingItem.updateMany({
-        where: { bookingId: booking.id },
-        data: { status: "CANCELLED" },
-      }),
-    ]);
+    await setBookingStatus(booking.id, "CANCELLED");
+
+    // Free the slot first, refund second. If the gateway refuses, the customer
+    // still has their cancellation and the salon still has its slot back; the
+    // money is the part a human can put right, and saying so beats silence.
+    const refund = await refundIfPaid(booking.id);
+    refundError = refund.error;
   }
 
   revalidatePath(`/${locale}/account`);
-  return redirect({ href: "/account", locale });
+  return redirect({
+    href: refundError ? "/account?error=refund" : "/account",
+    locale,
+  });
 }

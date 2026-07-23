@@ -1,6 +1,6 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-23 (second session)
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
@@ -36,8 +36,13 @@ payments, as originally planned.
 | M1.2 | Schema — bilingual catalog, multi-service bookings, revenue models | ✅ Shipped (`10f4a5d`) |
 | M2 | Customer marketplace — app shell, browse, search, salon detail | ✅ Shipped (`b0dfd0b`) |
 | M3 | Booking engine — availability, overlap prevention, booking flow | ✅ Shipped (`2b86988`) |
-| M4 | Salon owner + admin dashboards | 🔴 Not started |
-| M5 | Payments via Moyasar | 🔴 Not started |
+| M4 | Salon owner + admin dashboards | ✅ Shipped |
+| M5 | Payments via Moyasar | ✅ Shipped — needs live keys to exercise |
+
+**All seven original milestones are now covered.** M6 (reviews) and M7 (polish,
+SEO, deploy) from the first plan were folded into the renumbering: review display
+shipped with M2, review *writing* has not been built, and deployment has not been
+attempted. See "What is genuinely not done" below.
 
 **M2 breakdown** — all four parts built 2026-07-19:
 
@@ -74,7 +79,116 @@ create extensions — on a managed Postgres that is not always the app's own use
 
 ---
 
-## Completed 2026-07-23
+## Completed 2026-07-23 (second session) — M4 and M5
+
+### The invariant became a function
+
+M3 left a rule everyone had to remember: change `Booking.status` and you must
+change `BookingItem.status` with it, or cancelled visits keep reserving staff.
+M4 turns that into `setBookingStatus` in `src/server/booking/status.ts`, the only
+supported way to move a booking. It owns the transition table too:
+
+| From | May become |
+| --- | --- |
+| `PENDING` | `CONFIRMED`, `CANCELLED` |
+| `CONFIRMED` | `COMPLETED`, `NO_SHOW`, `CANCELLED` |
+| terminal | nothing |
+
+**Nothing returns to a blocking status.** Reviving a cancelled booking would ask
+the database for a slot someone else has very likely taken, and the EXCLUDE
+constraint would refuse it at the worst possible moment. A customer who changes
+their mind books again.
+
+### M4 — owner dashboard
+
+`/owner` with overview, bookings, services, team and profile. A salon owner signs
+up before they have a salon, so every page copes with there being nothing to
+manage yet, and the profile form doubles as the create-salon form. New salons
+start `PENDING_VERIFICATION` and are invisible to customers until an admin
+approves them.
+
+Staff identity, skills and shifts save in **one** form and one transaction: a
+member with no services or no hours is invisible to the availability engine, so a
+partial save would quietly produce someone who can never be booked.
+
+Services are retired, never deleted — booking history snapshots the price but
+still points at the row.
+
+### M4 — admin
+
+`/admin` is the verification queue plus a roster of every salon. Approving puts a
+salon on the marketplace; suspending or rejecting takes it off **and cancels its
+pending and confirmed bookings**, one at a time through `setBookingStatus`, so no
+customer is left holding an appointment at a salon they can no longer find.
+
+### M5 — payments via Moyasar
+
+Hosted **Invoice** flow, not the tokenised card API: the customer is sent to a
+Moyasar-hosted page, so no card data reaches this server and the flow still works
+without client JavaScript.
+
+- `money.ts` — all arithmetic in integer halalas, which is also Moyasar's wire
+  format. The fee is rounded and the net is the remainder, so `fee + net` is
+  always exactly the amount charged.
+- Commission precedence is **salon override → plan rate → platform default
+  (15%)**, resolved *at capture time* and never recomputed, so changing a rate
+  later cannot alter what a salon is owed for work already paid for. Only an
+  `ACTIVE` subscription buys its plan's rate.
+- The webhook (`/api/payments/moyasar/webhook`) is the authoritative path;
+  the customer's return redirect is a convenience that may never arrive. Both
+  call the same idempotent `settleFromGateway`.
+- The return page treats its own query string as attacker-supplied — anyone can
+  visit it with `status=paid`. It re-reads the payment through the API with our
+  secret key, and *that* is what gets recorded.
+- Cancelling a paid booking refunds it. The slot is freed first; a gateway that
+  refuses the refund surfaces an error rather than failing silently, because that
+  is the case where money is still with us.
+
+### P0 closed: unpaid holds expire
+
+`HOLD_MINUTES = 20`. An unpaid `PENDING` booking older than that is cancelled for
+real — a filter in the availability query would not have worked, because the slot
+is reserved by the database constraint, which knows nothing about wall-clock
+expiry. Swept from the availability path so the system heals on use with no cron
+to deploy or forget, and skipped entirely when payments are unconfigured, since
+an unconfigured deployment would otherwise cancel every booking it ever took.
+
+### Verified
+
+- 43 unit tests (11 new, over the money and commission maths — including that
+  `fee + net` reconstructs the amount across awkward rounding).
+- **39 end-to-end HTTP checks of the full lifecycle**: owner registers → creates
+  a salon → hidden from browse and 404 by slug → admin approves → appears in
+  browse → owner adds a service and a stylist with shifts → customer books at the
+  brand-new salon → owner is offered Confirm but not Complete → confirms →
+  webhook with the wrong secret is rejected 401 → with the right secret settles →
+  split lands as `SUCCEEDED,15.00,85.00` → a redelivered webhook changes nothing
+  → admin suspends → the confirmed booking *and its items* go `CANCELLED`.
+- **Run on an iPhone profile in WebKit** (see below).
+
+### Run on a phone
+
+The iOS Simulator is macOS-only and cannot run on this machine. The closest
+faithful substitute is Playwright's **WebKit** build with the iPhone 15 Pro
+device profile — same engine family as Safari, 393×659 at DPR 3, touch input,
+Mobile Safari UA. `scripts/iphone-run.mjs` drives it.
+
+It completed a real booking by **tapping** a slot, and found two layout faults
+that no desktop check would have:
+
+1. The site header broke *mid-phrase* at 393px — "Salon Hub" and "Log out" each
+   split across two lines. Fixed with `whitespace-nowrap` on every nav item and
+   an explicitly wrapping row: wrapping the row is fine, wrapping a label is not.
+2. The browse filters were a wrapping flex row, so a label could end up sitting
+   above a field it did not belong to. Now a two-column grid on small screens.
+
+Also asserted: no page scrolls horizontally in either language, Arabic lays out
+RTL with real glyph widths (a missing webfont would show tofu), and no slot
+button is under 32px tall.
+
+---
+
+## Completed 2026-07-23 (first session) — M3
 
 ### The blocking decision, settled
 
@@ -248,16 +362,29 @@ verified by running twice with identical counts. Salon owner logins are
 
 ---
 
+## What is genuinely not done
+
+The milestone table says shipped; this says what "shipped" does not mean.
+
+- **Nothing has been tested against Moyasar.** Every payment path is exercised
+  end to end against our own webhook handler with a seeded payment row, which
+  proves the split, the idempotency and the auth check. It does not prove the
+  request shape Moyasar actually accepts, because that needs `MOYASAR_SECRET_KEY`
+  from a real dashboard. **Get test keys (`sk_test_…`) and run one booking
+  through before believing the invoice call works.**
+- **Customers cannot write reviews.** Reviews render on salon pages and the
+  schema has held `Review` since M1, but nothing creates one — and `avgRating` /
+  `reviewCount` are denormalised with nothing maintaining them.
+- **Nothing has ever been deployed.** No hosting, no CI, no migrations run
+  anywhere but this laptop. The `btree_gist` extension in the M3 migration needs
+  a role permitted to create extensions, which on managed Postgres is often not
+  the application's own user.
+- **No notifications.** Neither the customer nor the salon is told anything
+  outside the web UI. SMS/WhatsApp is near-mandatory in this market.
+- **No photo uploads.** `coverImageUrl` and `SalonPhoto` are modelled; no page
+  renders them and no form sets them.
+
 ## Open issues
-
-### 🔴 P0 — a booking is a free, permanent hold
-
-Nothing expires a `PENDING` booking and nothing charges for one. A signed-in
-customer can reserve every slot a salon has, indefinitely, at no cost, and the
-EXCLUDE constraint will faithfully keep anyone else out. This is only safe while
-the seeded data is the only data. Before real listings, it needs at minimum a
-hold expiry, and properly it needs M5 payments (deposit at booking) plus per-
-customer rate limiting.
 
 ### 🟠 P1
 
@@ -368,27 +495,32 @@ customer rate limiting.
 
 ## Picking up
 
-**State at end of 2026-07-23.** Everything through M3 is committed on
+**State at end of 2026-07-23.** All five milestones are committed on
 `feat/m2-marketplace` (`master` still at `9d59dad` and needs a merge). Working
-tree clean; typecheck, lint, build and 32 tests all pass. Local database is
-migrated and seeded, and holds no bookings — the verification runs cleaned up
-after themselves.
+tree clean; typecheck, lint, build and 43 tests all pass. Local database is
+migrated and seeded, and holds no bookings, salons beyond the three seeded, or
+test users — every verification run cleaned up after itself.
 
-**Nothing is blocking M4.** The overlap decision that blocked M3 is settled and
-implemented; its consequence is the rule that M4 has to obey: *any code path
-that changes `Booking.status` changes its `BookingItem.status` in the same
-transaction.* The owner dashboard is exactly where that rule will first be
-tested, since confirm/complete/no-show all move status.
+The whole product now works end to end locally: a salon owner can sign up, get
+approved, list services and staff, and take a booking a customer made on a phone,
+confirm it, and be paid for it.
+
+**The one thing that has never been tested for real is Moyasar.** Before
+anything else, get test keys from the Moyasar dashboard, put
+`MOYASAR_SECRET_KEY` and `MOYASAR_WEBHOOK_SECRET` in `.env`, point a webhook at
+`/api/payments/moyasar/webhook`, and run one booking through. Everything
+downstream of that call is verified; the call itself is not.
 
 Suggested order:
 
-1. **M4 salon owner dashboard**, starting with confirm/cancel on a booking — it
-   closes the loop M3 opened, since every booking currently sits at `PENDING`
-   with nobody able to act on it.
-2. **Hold expiry** (P0 above). Even before payments, a `PENDING` booking older
-   than some window should stop reserving staff, or one account can freeze a
-   salon's calendar for free.
-3. Split the auth config so the proxy stops bundling Prisma.
-4. Pagination on browse, before the catalog grows past a screenful.
-5. Salon-level opening hours, which both the detail page and the booking engine
-   are currently approximating from staff shifts.
+1. **One real Moyasar test payment**, as above. Everything else here is
+   speculation until that round-trips.
+2. **Reviews a customer can write** — the only visible feature from the original
+   plan with no implementation behind it, and `avgRating` needs maintaining when
+   it lands.
+3. **Deploy something.** Nothing has run outside this laptop; the `btree_gist`
+   extension is the likely first surprise on managed Postgres.
+4. Split the auth config so the proxy stops bundling Prisma.
+5. Pagination on browse, before the catalog grows past a screenful.
+6. Salon-level opening hours, which both the detail page and the booking engine
+   are still approximating from staff shifts.

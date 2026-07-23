@@ -12,6 +12,7 @@ import {
   riyadhToday,
   type IsoDate,
 } from "@/server/booking/time";
+import { expireStaleHolds } from "@/server/payments/service";
 import type { BookingStatus } from "@/generated/prisma/enums";
 
 /**
@@ -61,6 +62,11 @@ export async function getDayAvailability({
   // staff by service id, so a repeat would be indistinguishable from the first.
   const requested = [...new Set(serviceIds)];
   if (requested.length === 0) return null;
+
+  // Release unpaid holds before reading the diary, so an abandoned checkout
+  // twenty minutes ago does not keep a slot off the market. Self-healing on
+  // use — see expireStaleHolds for why this is a write on a read path.
+  await expireStaleHolds(salonId);
 
   const services = await prisma.service.findMany({
     where: { id: { in: requested }, salonId, isActive: true },

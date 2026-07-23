@@ -20,11 +20,14 @@ export async function SiteHeader() {
 
   return (
     <header className="border-b border-gray-200 dark:border-gray-800">
-      <nav className="mx-auto flex max-w-5xl items-center gap-4 p-4">
-        <Link href="/" className="font-bold">
+      {/* whitespace-nowrap throughout: at 393px this nav is tight enough that
+          flex will otherwise break "Salon Hub" and "Log out" across two lines
+          mid-phrase. Wrapping the row is fine; wrapping a label is not. */}
+      <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 p-4 sm:gap-x-4">
+        <Link href="/" className="font-bold whitespace-nowrap">
           {t("brand")}
         </Link>
-        <Link href="/salons" className="text-sm hover:underline">
+        <Link href="/salons" className="text-sm whitespace-nowrap hover:underline">
           {t("salons")}
         </Link>
 
@@ -34,20 +37,20 @@ export async function SiteHeader() {
             <>
               <Link
                 href={dashboardPathByRole[session.user.role]}
-                className="text-sm hover:underline"
+                className="text-sm whitespace-nowrap hover:underline"
               >
                 {t("dashboard")}
               </Link>
-              <LogoutButton className="px-4 py-1.5 text-sm" />
+              <LogoutButton className="px-4 py-1.5 text-sm whitespace-nowrap" />
             </>
           ) : (
             <>
-              <Link href="/auth/login" className="text-sm hover:underline">
+              <Link href="/auth/login" className="text-sm whitespace-nowrap hover:underline">
                 {t("login")}
               </Link>
               <Link
                 href="/auth/register"
-                className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background"
+                className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium whitespace-nowrap text-background"
               >
                 {t("register")}
               </Link>

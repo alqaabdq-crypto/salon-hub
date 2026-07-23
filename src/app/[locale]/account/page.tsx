@@ -5,11 +5,13 @@ import { LogoutButton } from "@/components/logout-button";
 import { auth } from "@/server/auth/config";
 import { prisma } from "@/server/db/prisma";
 import { cancelBooking } from "@/server/booking/actions";
+import { startPayment } from "@/server/payments/actions";
+import { isPaymentConfigured } from "@/server/payments/moyasar";
 import type { BookingStatus } from "@/generated/prisma/enums";
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ booked?: string }>;
+  searchParams: Promise<{ booked?: string; error?: string }>;
 };
 
 /** Statuses a customer can still call off. Mirrors the guard in cancelBooking. */
@@ -19,17 +21,20 @@ export default async function AccountPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const { booked } = await searchParams;
+  const { booked, error } = await searchParams;
 
   // The layout's requireRole has already redirected anyone without a session.
   const session = (await auth())!;
   const t = await getTranslations("Account");
   const tStatus = await getTranslations("BookingStatus");
+  const tPayment = await getTranslations("PaymentStatus");
   const format = await getFormatter();
+  const paymentsOn = isPaymentConfigured();
 
   const bookings = await prisma.booking.findMany({
     where: { customerId: session.user.id },
     include: {
+      payment: { select: { status: true } },
       salon: { select: { slug: true, nameEn: true, nameAr: true } },
       items: {
         include: {
@@ -109,17 +114,40 @@ export default async function AccountPage({ params, searchParams }: Props) {
                 currency: "SAR",
               }),
             })}
+            {booking.payment && (
+              <span className="ms-2 text-sm font-normal text-gray-600 dark:text-gray-300">
+                · {tPayment(booking.payment.status)}
+              </span>
+            )}
           </p>
 
-          {isCancellable && (
-            <form action={cancelBooking}>
-              <input type="hidden" name="locale" value={locale} />
-              <input type="hidden" name="bookingId" value={booking.id} />
-              <button type="submit" className="text-sm underline">
-                {t("cancel")}
-              </button>
-            </form>
-          )}
+          <div className="flex items-center gap-4">
+            {/* Paying is what confirms the visit, so the prompt sits on the
+                booking itself. Hidden entirely when no gateway is configured,
+                rather than offering a button that cannot work. */}
+            {paymentsOn && booking.status === "PENDING" && isCancellable && (
+              <form action={startPayment}>
+                <input type="hidden" name="locale" value={locale} />
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <button
+                  type="submit"
+                  className="rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background"
+                >
+                  {t("payNow")}
+                </button>
+              </form>
+            )}
+
+            {isCancellable && (
+              <form action={cancelBooking}>
+                <input type="hidden" name="locale" value={locale} />
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <button type="submit" className="text-sm underline">
+                  {t("cancel")}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </li>
     );
@@ -139,7 +167,22 @@ export default async function AccountPage({ params, searchParams }: Props) {
           role="status"
           className="mt-6 rounded-lg border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-700 dark:bg-green-950 dark:text-green-100"
         >
-          {t("booked")}
+          {paymentsOn ? t("bookedPayNext") : t("booked")}
+        </p>
+      )}
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-6 rounded-lg border border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+        >
+          {/* A failed refund is the one error here a customer must not be left
+              to guess about — it means money is still with us. */}
+          {error === "refund"
+            ? t("errorRefund")
+            : error === "gateway"
+              ? t("errorGateway")
+              : t("errorGeneric")}
         </p>
       )}
 

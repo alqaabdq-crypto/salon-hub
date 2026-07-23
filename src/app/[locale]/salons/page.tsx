@@ -72,9 +72,13 @@ export default async function SalonsPage({ params, searchParams }: Props) {
       <h1 className="text-3xl font-bold">{t("title")}</h1>
 
       {/* Plain GET form: no client JS, and filters stay shareable in the URL.
-          An empty action submits to the current path, preserving the locale. */}
-      <form className="mt-6 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
+          An empty action submits to the current path, preserving the locale.
+
+          Two columns on a phone rather than a wrapping flex row: at 393px the
+          row broke label/field pairs onto separate lines, so a label could sit
+          above a field it did not belong to. */}
+      <form className="mt-6 grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+        <div className="col-span-2 flex flex-col gap-1.5">
           <label htmlFor="q" className="text-sm font-medium">
             {t("search")}
           </label>
@@ -152,7 +156,7 @@ export default async function SalonsPage({ params, searchParams }: Props) {
         </button>
 
         {hasFilters && (
-          <Link href="/salons" className="px-2 py-2.5 text-sm underline">
+          <Link href="/salons" className="self-center px-2 py-2.5 text-sm underline">
             {t("clear")}
           </Link>
         )}

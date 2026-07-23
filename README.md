@@ -68,9 +68,15 @@ Locale-prefixed routes (`/en/...`, `/ar/...`) with three role-guarded sections:
 
 | Section | Role | Notes |
 | --- | --- | --- |
-| `/account` | `CUSTOMER` | |
-| `/owner` | `SALON_OWNER` | |
-| `/admin` | `ADMIN` | Seed-only; cannot be self-registered. |
+| `/account` | `CUSTOMER` | Bookings, cancel, pay. |
+| `/owner` | `SALON_OWNER` | Salon profile, services, team, bookings. |
+| `/admin` | `ADMIN` | Verification queue. Seed-only; cannot be self-registered. |
+
+A salon owner signs up before they have a salon, so `/owner` also creates one.
+New salons start `PENDING_VERIFICATION` and stay invisible to customers — not
+listed, and 404 by slug — until an admin approves them. Suspending or rejecting
+an approved salon cancels its pending and confirmed bookings, so nobody is left
+holding an appointment at a salon they can no longer find.
 
 Authorization is deliberately layered. `src/proxy.ts` does an optimistic JWT check
 to redirect early, and every dashboard layout independently re-checks server-side
@@ -90,6 +96,7 @@ The booking engine lives in `src/server/booking/`:
 | `availability.ts` | Pure slot search. No Prisma, no clock, so it is unit-tested exhaustively. |
 | `schedule.ts` | Loads staff, shifts, time off and existing bookings, then calls the engine. |
 | `actions.ts` | Server Actions to create and cancel a booking. |
+| `status.ts` | The only supported way to change a booking's status, and the transition table it enforces. |
 
 Two staff members cannot be double-booked, and the guarantee is in the database,
 not only in the query: a partial `btree_gist` EXCLUDE constraint on
@@ -100,18 +107,69 @@ which makes one rule mandatory:
 > **Any code path that changes `Booking.status` must change its
 > `BookingItem.status` rows in the same transaction.**
 
-Miss it and cancelled visits go on reserving staff for ever.
+Miss it and cancelled visits go on reserving staff for ever. Rather than trusting
+everyone to remember, `setBookingStatus` in `status.ts` is the only supported way
+to move a booking — use it instead of writing `status` directly.
+
+An unpaid booking holds its slot for 20 minutes (`HOLD_MINUTES`) and is then
+cancelled for real. A filter in the availability query would not do: the slot is
+reserved by the database constraint, which knows nothing about wall-clock expiry.
 
 The whole customer flow works without client JavaScript: selection lives in the
 URL, and each slot is its own form.
 
+## Payments
+
+Moyasar, via the hosted **Invoice** flow — the customer is sent to a
+Moyasar-hosted page, so no card data reaches this server and the flow needs no
+client JavaScript. Stripe was rejected: the requirement is a gateway licensed in
+Saudi Arabia.
+
+Payments are optional infrastructure. Without `MOYASAR_SECRET_KEY` the app still
+takes bookings, it just cannot charge for them — "Pay now" is hidden and holds
+never expire, because nothing could ever have paid for them.
+
+To turn it on:
+
+1. Put `MOYASAR_SECRET_KEY` (a `sk_test_…` key while developing) in `.env`.
+2. Pick a `MOYASAR_WEBHOOK_SECRET` and set the same value on the webhook in the
+   Moyasar dashboard, pointing at `/api/payments/moyasar/webhook`. Unset, the
+   endpoint rejects everything — without it anyone could mark any booking paid.
+
+The webhook is the authoritative path; the customer's return redirect is a
+convenience that may never arrive, and its query string is treated as
+attacker-supplied (anyone can visit that URL with `status=paid`). Both re-read
+the payment through the API before recording anything.
+
+Commission precedence is **salon override → plan rate → platform default (15%)**,
+resolved at capture time and never recomputed, so changing a rate later cannot
+alter what a salon is owed for work already paid for.
+
 ## Testing
 
 ```bash
-npm test          # vitest, unit tests over the pure booking modules
+npm test          # vitest, unit tests over the pure booking and money modules
 npm run typecheck # tsc --noEmit
 npm run lint
 ```
+
+### On a phone
+
+`scripts/iphone-run.mjs` drives the running app through Playwright's WebKit build
+with an iPhone device profile — iPhone viewport, DPR 3, touch input, Mobile
+Safari UA. It is not the iOS Simulator, which ships with Xcode and only runs on
+macOS; it is the closest stand-in that works on Windows or Linux.
+
+```bash
+npm run build && npx next start -p 3111
+npx playwright install webkit
+CUST_EMAIL=someone@example.test node scripts/iphone-run.mjs ./shots
+```
+
+It taps through a real booking and asserts the things only a phone shows: no
+horizontal scroll in either language, Arabic laid out RTL with real glyph widths,
+and touch targets that are not too small. It has already caught a header that
+broke mid-phrase at 393px.
 
 Auth and i18n bugs in this stack tend to be invisible under `next dev`, because
 `NODE_ENV !== "production"` changes how Auth.js derives `trustHost`. Verify
@@ -138,5 +196,9 @@ src/components/    ui primitives, dashboard shell
 src/i18n/          next-intl routing, request config, navigation
 src/proxy.ts       optimistic auth + locale routing (Next 16 "Proxy")
 src/server/        auth config, RBAC helper, Prisma client
-src/server/booking availability engine and booking actions
+src/server/booking availability engine, booking actions, status machine
+src/server/salon   salon-owner actions
+src/server/admin   verification actions
+src/server/payments Moyasar client, commission maths, hold expiry
+scripts/           iphone-run.mjs — drives the app on an iPhone profile
 ```
