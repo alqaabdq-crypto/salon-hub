@@ -14,30 +14,38 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-23):** *"deploy this in URL so i can browse it"* — then, when I
-raised the account problem, *"need to browse the URL to check the work you have
-created."*
+**Asked (2026-07-26):** *"integrate with claude design and make the url more
+colorful and then deploye it again"* — a visual redesign of the previously
+delivered tunnel, then relaunch it.
 
-**Answered:** A real deployment was not possible unattended — every host needs an
-account, and this machine has none (`gh` not logged in, no Vercel/Railway/Fly
-CLI, no tokens anywhere). So the request was split:
+**Answered:** Done. Built a cohesive brand system (rose-magenta → violet gradient
+with a gold rating accent) in `globals.css` as Tailwind v4 `@theme` tokens plus
+`.btn-brand` / `.text-gradient-brand` / `.card-surface` utilities, and applied it
+across every public surface — sticky blurred header with a gradient wordmark, a
+hero landing with a gradient headline and glow, colorful salon cards that lift on
+hover, brand-tinted badges, gold review stars, gradient book/apply buttons, and
+brand focus rings on inputs. The shared `Button` is now the gradient, so auth and
+dashboard primaries inherit it. Rebuilt **outside OneDrive** (`C:\temp\salon-hub-live`)
+to dodge the sync-corruption trap, verified the brand hex compiled into the served
+CSS and that all pages render 200 with data in both locales, then relaunched the
+Cloudflare quick tunnel.
 
-1. **Deployment readiness — done.** Found and fixed a genuine blocker: the
-   generated Prisma client is gitignored, so a cloud build from a fresh clone
-   would have failed. `build` now runs `prisma generate` first, verified by
-   cloning the repo clean and building it with no `DATABASE_URL` at all. Also
-   merged `master` up to the full product, and stopped the seed writing the
-   README's public passwords to any remote database.
-2. **A browsable URL — delivered, but not a deployment.** A Cloudflare quick
-   tunnel to a production build running on the project owner's own laptop:
-   `https://sally-obituaries-pull-twenty.trycloudflare.com`. No account needed,
-   live in minutes. **It dies when that machine sleeps** and it exposes the
-   laptop and its local database to the public internet — both stated at the
-   time, and the request was reaffirmed after hearing them.
+**New tunnel:** `https://pet-varies-cables-improving.trycloudflare.com` (EN/AR
+both 200 through the public URL). Same caveats as before — **it dies when this
+laptop sleeps** and exposes the machine + local database publicly; the hostname
+is random and changes every relaunch.
 
-**Still owed:** the durable URL. Vercel + Neon is roughly fifteen minutes of
-work, all of it blocked on two things only the owner can do — one `vercel login`
-and a Neon connection string. See "Deployment" below.
+**Still owed (unchanged):** the *durable* URL. A tunnel is still not a deployment.
+Vercel + Neon is ~15 minutes, all of it blocked on two things only the owner can
+do — one `vercel login` and a Neon connection string. See "Deployment" below.
+
+---
+
+### Prior request (2026-07-23)
+
+*"deploy this in URL so i can browse it"* → split into deployment-readiness (fixed
+the gitignored-Prisma-client build blocker; guarded the seed; fast-forwarded
+`master`) plus a first Cloudflare tunnel. The durable URL was left owed — still is.
 
 ---
 

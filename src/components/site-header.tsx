@@ -19,15 +19,21 @@ export async function SiteHeader() {
   const session = await auth();
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800">
+    <header className="sticky top-0 z-30 border-b border-hairline bg-background/70 backdrop-blur-md">
       {/* whitespace-nowrap throughout: at 393px this nav is tight enough that
           flex will otherwise break "Salon Hub" and "Log out" across two lines
           mid-phrase. Wrapping the row is fine; wrapping a label is not. */}
       <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 p-4 sm:gap-x-4">
-        <Link href="/" className="font-bold whitespace-nowrap">
-          {t("brand")}
+        <Link href="/" className="flex items-center gap-2 whitespace-nowrap">
+          <span className="gradient-brand inline-block h-6 w-6 rounded-lg shadow-sm" aria-hidden />
+          <span className="text-gradient-brand text-lg font-extrabold tracking-tight">
+            {t("brand")}
+          </span>
         </Link>
-        <Link href="/salons" className="text-sm whitespace-nowrap hover:underline">
+        <Link
+          href="/salons"
+          className="text-sm font-medium whitespace-nowrap text-muted transition hover:text-brand"
+        >
           {t("salons")}
         </Link>
 
@@ -37,7 +43,7 @@ export async function SiteHeader() {
             <>
               <Link
                 href={dashboardPathByRole[session.user.role]}
-                className="text-sm whitespace-nowrap hover:underline"
+                className="text-sm font-medium whitespace-nowrap text-muted transition hover:text-brand"
               >
                 {t("dashboard")}
               </Link>
@@ -45,12 +51,15 @@ export async function SiteHeader() {
             </>
           ) : (
             <>
-              <Link href="/auth/login" className="text-sm whitespace-nowrap hover:underline">
+              <Link
+                href="/auth/login"
+                className="text-sm font-medium whitespace-nowrap text-muted transition hover:text-brand"
+              >
                 {t("login")}
               </Link>
               <Link
                 href="/auth/register"
-                className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium whitespace-nowrap text-background"
+                className="btn-brand rounded-full px-4 py-1.5 text-sm font-medium whitespace-nowrap"
               >
                 {t("register")}
               </Link>

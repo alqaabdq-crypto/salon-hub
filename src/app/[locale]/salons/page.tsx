@@ -69,7 +69,9 @@ export default async function SalonsPage({ params, searchParams }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 p-6">
-      <h1 className="text-3xl font-bold">{t("title")}</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight">
+        <span className="text-gradient-brand">{t("title")}</span>
+      </h1>
 
       {/* Plain GET form: no client JS, and filters stay shareable in the URL.
           An empty action submits to the current path, preserving the locale.
@@ -87,7 +89,7 @@ export default async function SalonsPage({ params, searchParams }: Props) {
             name="q"
             defaultValue={query ?? ""}
             placeholder={t("searchPlaceholder")}
-            className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-transparent"
+            className="rounded-lg border border-hairline bg-surface/60 px-3 py-2 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
           />
         </div>
 
@@ -99,7 +101,7 @@ export default async function SalonsPage({ params, searchParams }: Props) {
             id="city"
             name="city"
             defaultValue={city ?? ""}
-            className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-transparent"
+            className="rounded-lg border border-hairline bg-surface/60 px-3 py-2 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
           >
             <option value="">{t("all")}</option>
             {cities.map((row) => (
@@ -118,7 +120,7 @@ export default async function SalonsPage({ params, searchParams }: Props) {
             id="gender"
             name="gender"
             defaultValue={gender ?? ""}
-            className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-transparent"
+            className="rounded-lg border border-hairline bg-surface/60 px-3 py-2 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
           >
             <option value="">{t("all")}</option>
             {GENDER_VALUES.map((value) => (
@@ -137,7 +139,7 @@ export default async function SalonsPage({ params, searchParams }: Props) {
             id="category"
             name="category"
             defaultValue={category ?? ""}
-            className="rounded-md border border-gray-300 px-3 py-2 dark:border-gray-700 dark:bg-transparent"
+            className="rounded-lg border border-hairline bg-surface/60 px-3 py-2 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
           >
             <option value="">{t("all")}</option>
             {categories.map((row) => (
@@ -150,24 +152,27 @@ export default async function SalonsPage({ params, searchParams }: Props) {
 
         <button
           type="submit"
-          className="rounded-full bg-foreground px-5 py-2.5 font-medium text-background"
+          className="btn-brand rounded-full px-5 py-2.5 font-medium"
         >
           {t("apply")}
         </button>
 
         {hasFilters && (
-          <Link href="/salons" className="self-center px-2 py-2.5 text-sm underline">
+          <Link
+            href="/salons"
+            className="self-center px-2 py-2.5 text-sm font-medium text-brand hover:underline"
+          >
             {t("clear")}
           </Link>
         )}
       </form>
 
-      <p className="mt-6 text-sm text-gray-600 dark:text-gray-300">
+      <p className="mt-6 text-sm text-muted">
         {t("results", { count: salons.length })}
       </p>
 
       {salons.length === 0 ? (
-        <p className="mt-8 text-gray-600 dark:text-gray-300">{t("empty")}</p>
+        <p className="mt-8 text-muted">{t("empty")}</p>
       ) : (
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {salons.map((salon) => {
@@ -178,24 +183,27 @@ export default async function SalonsPage({ params, searchParams }: Props) {
               <li key={salon.id}>
                 <Link
                   href={`/salons/${salon.slug}`}
-                  className="block h-full rounded-xl border border-gray-200 p-5 hover:border-gray-400 dark:border-gray-800 dark:hover:border-gray-600"
+                  className="card-surface group block h-full rounded-2xl p-5"
                 >
+                  {/* Gradient ribbon so a text-only card still carries brand color. */}
+                  <span className="gradient-brand mb-4 block h-1.5 w-12 rounded-full" aria-hidden />
+
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="font-semibold">{localized(salon, "name", locale)}</h2>
-                    <span className="shrink-0 rounded-full border border-gray-300 px-2 py-0.5 text-xs dark:border-gray-700">
+                    <h2 className="font-semibold transition group-hover:text-brand">
+                      {localized(salon, "name", locale)}
+                    </h2>
+                    <span className="shrink-0 rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
                       {tGender(salon.genderFocus)}
                     </span>
                   </div>
 
-                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    {salon.city}
-                  </p>
+                  <p className="mt-1 text-sm text-muted">{salon.city}</p>
 
-                  <p className="mt-3 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
+                  <p className="mt-3 line-clamp-2 text-sm text-muted">
                     {localized(salon, "description", locale)}
                   </p>
 
-                  <p className="mt-3 text-sm font-medium">
+                  <p className="mt-4 text-sm font-semibold text-brand">
                     {from === null
                       ? t("noPrices")
                       : t("from", {

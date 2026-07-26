@@ -2,18 +2,19 @@
 
 import { signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
 
+// Ghost/outline button — deliberately not the brand gradient Button, so the
+// primary action on any page (register, book, pay) stays visually singular.
 export function LogoutButton({ className = "" }: { className?: string }) {
   const t = useTranslations("Nav");
   const locale = useLocale();
 
   return (
-    <Button
-      className={`bg-transparent text-foreground border border-gray-300 dark:border-gray-700 ${className}`}
+    <button
+      className={`rounded-full border border-brand/40 font-medium text-brand transition hover:bg-brand/10 ${className}`}
       onClick={() => signOut({ callbackUrl: `/${locale}` })}
     >
       {t("logout")}
-    </Button>
+    </button>
   );
 }

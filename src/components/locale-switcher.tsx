@@ -23,7 +23,7 @@ export function LocaleSwitcher() {
       locale={target}
       lang={target}
       hrefLang={target}
-      className="rounded-full border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-900"
+      className="rounded-full border border-hairline px-3 py-1.5 text-sm font-medium transition hover:border-brand/40 hover:text-brand"
     >
       {labels[target] ?? target}
     </Link>

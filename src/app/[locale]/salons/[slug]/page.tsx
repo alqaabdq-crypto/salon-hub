@@ -78,44 +78,53 @@ export default async function SalonPage({ params }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 p-6">
-      <header>
+      <header className="card-surface rounded-2xl p-6">
+        <span className="gradient-brand mb-4 block h-1.5 w-14 rounded-full" aria-hidden />
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold">{localized(salon, "name", locale)}</h1>
-          <span className="rounded-full border border-gray-300 px-2 py-0.5 text-xs dark:border-gray-700">
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            {localized(salon, "name", locale)}
+          </h1>
+          <span className="rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
             {tGender(salon.genderFocus)}
           </span>
         </div>
 
-        <p className="mt-2 text-gray-600 dark:text-gray-300">
+        <p className="mt-2 text-muted">
           {salon.address}, {salon.city}
         </p>
 
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-          {salon.reviewCount > 0
-            ? `★ ${format.number(salon.avgRating, { maximumFractionDigits: 1 })} · ${t("reviewCount", { count: salon.reviewCount })}`
-            : t("reviewCount", { count: 0 })}
+        <p className="mt-1 text-sm">
+          {salon.reviewCount > 0 ? (
+            <span className="font-medium">
+              <span className="text-gold">★</span>{" "}
+              {format.number(salon.avgRating, { maximumFractionDigits: 1 })}{" "}
+              <span className="text-muted">· {t("reviewCount", { count: salon.reviewCount })}</span>
+            </span>
+          ) : (
+            <span className="text-muted">{t("reviewCount", { count: 0 })}</span>
+          )}
         </p>
 
         <p className="mt-4">{localized(salon, "description", locale)}</p>
       </header>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">{t("services")}</h2>
+        <h2 className="flex items-center gap-2 text-xl font-bold before:h-5 before:w-1.5 before:rounded-full before:bg-brand before:content-['']">{t("services")}</h2>
         {salon.services.length === 0 ? (
-          <p className="mt-3 text-gray-600 dark:text-gray-300">{t("noServices")}</p>
+          <p className="mt-3 text-muted">{t("noServices")}</p>
         ) : (
-          <ul className="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
+          <ul className="mt-3 divide-y divide-hairline">
             {salon.services.map((service) => (
               <li key={service.id} className="flex items-center justify-between gap-4 py-3">
                 <div>
                   <p className="font-medium">{localized(service, "name", locale)}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                  <p className="text-sm text-muted">
                     {localized(service.category, "name", locale)} ·{" "}
                     {t("minutes", { count: service.durationMinutes })}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <span className="font-medium">
+                  <span className="font-semibold text-brand">
                     {format.number(Number(service.price), {
                       style: "currency",
                       currency: "SAR",
@@ -125,7 +134,7 @@ export default async function SalonPage({ params }: Props) {
                   {/* Preselects this service; more can be added on the form. */}
                   <Link
                     href={`/salons/${salon.slug}/book?services=${service.id}`}
-                    className="rounded-full border border-gray-300 px-3 py-1 text-xs hover:border-gray-500 dark:border-gray-700 dark:hover:border-gray-400"
+                    className="btn-brand rounded-full px-4 py-1.5 text-xs font-medium"
                   >
                     {t("book")}
                   </Link>
@@ -137,18 +146,18 @@ export default async function SalonPage({ params }: Props) {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">{t("team")}</h2>
+        <h2 className="flex items-center gap-2 text-xl font-bold before:h-5 before:w-1.5 before:rounded-full before:bg-brand before:content-['']">{t("team")}</h2>
         {salon.staff.length === 0 ? (
-          <p className="mt-3 text-gray-600 dark:text-gray-300">{t("noStaff")}</p>
+          <p className="mt-3 text-muted">{t("noStaff")}</p>
         ) : (
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">
             {salon.staff.map((member) => (
               <li
                 key={member.id}
-                className="rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+                className="card-surface rounded-2xl p-4"
               >
                 <p className="font-medium">{member.name}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
+                <p className="text-sm text-muted">
                   {localized(member, "bio", locale)}
                 </p>
               </li>
@@ -158,17 +167,15 @@ export default async function SalonPage({ params }: Props) {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">{t("hours")}</h2>
-        <ul className="mt-3 divide-y divide-gray-200 dark:divide-gray-800">
+        <h2 className="flex items-center gap-2 text-xl font-bold before:h-5 before:w-1.5 before:rounded-full before:bg-brand before:content-['']">{t("hours")}</h2>
+        <ul className="mt-3 divide-y divide-hairline">
           {WEEK_ORDER.map((day) => {
             const hours = hoursByDay.get(day);
             return (
               <li key={day} className="flex items-center justify-between py-2 text-sm">
                 <span>{tDay(day)}</span>
                 <span
-                  className={
-                    hours ? "" : "text-gray-500 dark:text-gray-400"
-                  }
+                  className={hours ? "font-medium" : "text-muted"}
                 >
                   {/* Bidi isolation: without it an RTL paragraph flips the range
                       to read 22:00–10:00. */}
@@ -181,22 +188,22 @@ export default async function SalonPage({ params }: Props) {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-xl font-semibold">{t("reviews")}</h2>
+        <h2 className="flex items-center gap-2 text-xl font-bold before:h-5 before:w-1.5 before:rounded-full before:bg-brand before:content-['']">{t("reviews")}</h2>
         {salon.reviews.length === 0 ? (
-          <p className="mt-3 text-gray-600 dark:text-gray-300">{t("noReviews")}</p>
+          <p className="mt-3 text-muted">{t("noReviews")}</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-4">
             {salon.reviews.map((review) => (
               <li
                 key={review.id}
-                className="rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+                className="card-surface rounded-2xl p-4"
               >
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{review.customer.name}</p>
-                  <p className="text-sm">{"★".repeat(review.rating)}</p>
+                  <p className="text-sm text-gold">{"★".repeat(review.rating)}</p>
                 </div>
                 {review.comment && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                  <p className="mt-2 text-sm text-muted">
                     {review.comment}
                   </p>
                 )}

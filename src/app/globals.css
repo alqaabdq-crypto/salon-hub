@@ -1,13 +1,36 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Salon Hub brand system
+   A warm beauty-marketplace palette: rose-magenta primary, violet accent, a
+   little gold for ratings. Semantic surfaces (surface / hairline / muted) let
+   pages read cohesively in both light and dark without hardcoding grays.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Soft rose-tinted canvas rather than pure white. */
+  --background: #fff5f9;
+  --foreground: #1e1520;
+  --surface: #ffffff;
+  --hairline: #f4d7e4;
+  --muted: #7a6470;
 }
 
+/* Raw brand hues — these generate bg-brand / text-accent / from-brand etc. */
+@theme {
+  --color-brand: #e11d74;
+  --color-brand-strong: #b4125c;
+  --color-accent: #7c3aed;
+  --color-gold: #f5a524;
+}
+
+/* Semantic tokens wired to the CSS vars above so they follow the theme. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-hairline: var(--hairline);
+  --color-muted: var(--muted);
   /* Geist carries no Arabic glyphs, so Arabic text falls through to Noto Sans
      Arabic per-glyph. Order matters: Latin resolves from Geist first. */
   --font-sans: var(--font-geist-sans), var(--font-noto-sans-arabic), ui-sans-serif,
@@ -17,13 +40,62 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #140a11;
+    --foreground: #f5ecf1;
+    --surface: #1f131b;
+    --hairline: #3a2431;
+    --muted: #b79caa;
   }
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  /* Faint dual-tone glow anchored top-left/top-right, over the tinted canvas.
+     background-attachment keeps it steady while content scrolls. */
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60rem 40rem at 8% -10%, color-mix(in oklab, var(--color-brand) 16%, transparent), transparent 60%),
+    radial-gradient(52rem 36rem at 100% 0%, color-mix(in oklab, var(--color-accent) 14%, transparent), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Brand gradient fill, reused by the primary button and hero accents. */
+.gradient-brand {
+  background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
+}
+
+/* Gradient text for the wordmark and hero headline. */
+.text-gradient-brand {
+  background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Primary action: gradient pill with a soft brand shadow and a lift on hover. */
+.btn-brand {
+  background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
+  color: #fff;
+  box-shadow: 0 8px 20px -8px color-mix(in oklab, var(--color-brand) 70%, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn-brand:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 12px 26px -8px color-mix(in oklab, var(--color-brand) 80%, transparent);
+  transform: translateY(-1px);
+}
+.btn-brand:active {
+  transform: translateY(0);
+}
+
+/* Surface card with a colored edge that warms on hover. */
+.card-surface {
+  background-color: color-mix(in oklab, var(--surface) 90%, transparent);
+  border: 1px solid var(--hairline);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.card-surface:hover {
+  border-color: color-mix(in oklab, var(--color-brand) 45%, var(--hairline));
+  box-shadow: 0 14px 30px -18px color-mix(in oklab, var(--color-brand) 60%, transparent);
 }
