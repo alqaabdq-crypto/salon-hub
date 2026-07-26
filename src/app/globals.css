@@ -1,35 +1,34 @@
 @import "tailwindcss";
 
-/* ---------------------------------------------------------------------------
-   Salon Hub brand system
-   A clean white canvas with an oily olive-green identity. Semantic surfaces
-   (surface / hairline / muted) let pages read cohesively in light and dark
-   without hardcoding grays.
+/* Force the site into its dark treatment regardless of OS preference: the
+   RedSun-style look is always dark. The whole app is already dark-mode-aware
+   (every gray/white carries a dark: variant), so switching `dark:` to a class
+   strategy and putting `.dark` on <html> lights up the designed dark styles. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-   Contrast note: text-brand and white-on-brand both need >=4.5:1, which forces
-   `--color-brand` dark. The lighter, livelier `--color-accent` is used only for
-   large headings (>=3:1) and decorative fills (ribbons, glows), never as a
-   background behind small white text. The primary button uses a dark
-   brand-strong -> brand gradient so its white label stays legible.
+/* ---------------------------------------------------------------------------
+   Salon Hub brand system — RedSun-inspired
+   Near-black canvas, a bright "oily olive" accent that glows like a rising sun.
 --------------------------------------------------------------------------- */
 
 :root {
-  --background: #ffffff;
-  --foreground: #141a0b;
-  --surface: #ffffff;
-  --hairline: #e4ead2;
-  --muted: #5b6647;
+  --background: #0a0b07;   /* near-black, faint olive warmth */
+  --foreground: #f3f4ec;   /* near-white */
+  --surface: #14160e;      /* raised card */
+  --hairline: #262a1c;     /* subtle border */
+  --muted: #9a9d8c;        /* secondary text */
 }
 
-/* Raw brand hues — these generate bg-brand / text-accent / from-brand etc. */
+/* Raw brand hues — bright, because they sit on near-black. These generate
+   bg-brand / text-accent / from-brand etc. */
 @theme {
-  --color-brand: #556b1a;        /* deep oily olive — safe for text + white-on-it */
-  --color-brand-strong: #3f5113; /* darker olive for the button gradient base */
-  --color-accent: #7d9b2f;       /* brighter oily olive — headings + decoration */
-  --color-gold: #b0800f;         /* olive-gold, rating stars */
+  --color-brand: #b6d94a;         /* bright oily olive — accent + glow */
+  --color-brand-strong: #9cc22f;  /* deeper olive for the gradient base */
+  --color-accent: #e7f08a;        /* pale hot edge — the sun's core */
+  --color-gold: #e3c04a;          /* rating stars */
 }
 
-/* Semantic tokens wired to the CSS vars above so they follow the theme. */
+/* Semantic tokens wired to the CSS vars above. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -43,35 +42,24 @@
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0e1206;
-    --foreground: #eef3e2;
-    --surface: #161c0b;
-    --hairline: #2b3618;
-    --muted: #a7b389;
-  }
-}
-
 body {
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* Faint olive glow anchored top-left/top-right over the white canvas.
-     background-attachment keeps it steady while content scrolls. */
   background-color: var(--background);
+  /* Faint olive haze top corners, plus a warm ground glow bottom-centre where
+     the "sun" rises. background-attachment keeps it steady while scrolling. */
   background-image:
-    radial-gradient(60rem 40rem at 8% -10%, color-mix(in oklab, var(--color-brand) 14%, transparent), transparent 60%),
-    radial-gradient(52rem 36rem at 100% 0%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 55%);
+    radial-gradient(50rem 32rem at 12% -8%, color-mix(in oklab, var(--color-brand) 10%, transparent), transparent 60%),
+    radial-gradient(60rem 40rem at 50% 118%, color-mix(in oklab, var(--color-brand) 20%, transparent), transparent 60%);
   background-attachment: fixed;
 }
 
-/* Brand gradient fill, reused by hero accents and decorative marks. */
+/* Brand gradient fill, reused by decorative marks. */
 .gradient-brand {
   background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
 }
 
-/* Gradient text for the wordmark and hero headline. Used only on large,
-   bold type, where the >=3:1 large-text threshold applies. */
+/* Gradient text — bright olive on dark, used on large page titles. */
 .text-gradient-brand {
   background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
   -webkit-background-clip: text;
@@ -79,17 +67,18 @@ body {
   color: transparent;
 }
 
-/* Primary action: dark olive gradient (brand-strong -> brand) so the white
-   label clears 4.5:1 across the whole button, with a soft lift on hover. */
+/* Primary action: bright olive gradient with DARK text (white would fail on
+   this luminance), a soft glow, and a lift on hover. */
 .btn-brand {
   background-image: linear-gradient(120deg, var(--color-brand-strong), var(--color-brand));
-  color: #fff;
-  box-shadow: 0 8px 20px -8px color-mix(in oklab, var(--color-brand) 70%, transparent);
+  color: #10130a;
+  font-weight: 600;
+  box-shadow: 0 8px 24px -8px color-mix(in oklab, var(--color-brand) 55%, transparent);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 .btn-brand:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 12px 26px -8px color-mix(in oklab, var(--color-brand) 80%, transparent);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 30px -8px color-mix(in oklab, var(--color-brand) 70%, transparent);
   transform: translateY(-1px);
 }
 .btn-brand:active {
@@ -103,69 +92,80 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 .card-surface:hover {
-  border-color: color-mix(in oklab, var(--color-brand) 45%, var(--hairline));
-  box-shadow: 0 14px 30px -18px color-mix(in oklab, var(--color-brand) 60%, transparent);
+  border-color: color-mix(in oklab, var(--color-brand) 40%, var(--hairline));
+  box-shadow: 0 14px 34px -18px color-mix(in oklab, var(--color-brand) 45%, transparent);
 }
 
 /* ---------------------------------------------------------------------------
-   Depth & motion — the "modern / 3D" layer
+   Depth & motion
 --------------------------------------------------------------------------- */
 
-/* A 3D stage. Children with translateZ() gain real parallax depth. */
-.scene {
-  perspective: 1200px;
-}
+.scene { perspective: 1200px; }
 
-/* Frosted glass over the olive glow, so cards read as floating panels. */
+/* Frosted dark glass — cards read as floating panels over the glow. */
 .glass {
-  background-color: color-mix(in oklab, var(--surface) 72%, transparent);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  border: 1px solid color-mix(in oklab, var(--color-brand) 16%, var(--hairline));
+  background-color: color-mix(in oklab, var(--surface) 62%, transparent);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  border: 1px solid color-mix(in oklab, var(--color-brand) 14%, var(--hairline));
 }
 
-/* Layered, brand-tinted shadow — the single biggest "3D" cue. */
+/* Layered shadow — depth cue. */
 .shadow-depth {
   box-shadow:
-    0 1px 1px color-mix(in oklab, var(--foreground) 6%, transparent),
-    0 10px 20px -10px color-mix(in oklab, var(--color-brand) 30%, transparent),
-    0 30px 55px -25px color-mix(in oklab, var(--color-brand) 38%, transparent);
+    0 1px 1px color-mix(in oklab, #000 40%, transparent),
+    0 12px 24px -12px color-mix(in oklab, #000 60%, transparent),
+    0 32px 60px -28px color-mix(in oklab, var(--color-brand) 30%, transparent);
 }
 
-/* The hero card: rotates toward the cursor. --rx/--ry are set from JS. */
-.tilt {
-  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  transform-style: preserve-3d;
-  transition: transform 0.2s ease-out;
-  will-change: transform;
-}
-/* Inner layers pop forward for parallax; set via translateZ utility below. */
-.layer-1 { transform: translateZ(40px); }
-.layer-2 { transform: translateZ(70px); }
-
-/* Feature cards: a gentle CSS-only float on hover (needs a .scene ancestor). */
 .card-3d {
   transform-style: preserve-3d;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.card-3d:hover {
-  transform: translateY(-6px) scale(1.015);
+.card-3d:hover { transform: translateY(-6px) scale(1.015); }
+
+/* The signature "rising sun": a bright olive disc glowing from behind, its
+   lower half masked so it melts into the page like a horizon. --shift is set
+   from JS for a gentle cursor parallax. */
+.sun-wrap {
+  position: relative;
+  height: 300px;
+  margin-top: 2.5rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 92%);
+}
+.sun-disc {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  width: min(150%, 820px);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  transform: translate(calc(-50% + var(--sun-x, 0px)), var(--sun-y, 0px));
+  transition: transform 0.3s ease-out;
+  background:
+    radial-gradient(120% 70% at 50% -6%,
+      color-mix(in oklab, var(--color-accent) 92%, transparent) 0%,
+      color-mix(in oklab, var(--color-brand) 60%, transparent) 20%,
+      transparent 52%),
+    radial-gradient(circle at 50% 50%,
+      color-mix(in oklab, var(--surface) 92%, #000) 58%, transparent 60%);
+  box-shadow:
+    0 0 120px 24px color-mix(in oklab, var(--color-brand) 40%, transparent),
+    inset 0 10px 60px color-mix(in oklab, var(--color-accent) 45%, transparent);
 }
 
-/* Always-on ambient orbs behind the hero. */
 .orb {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(46px);
-  opacity: 0.55;
+  filter: blur(50px);
+  opacity: 0.4;
   pointer-events: none;
   animation: orb-float 9s ease-in-out infinite;
 }
 
-/* Staggered entrance for content below the fold. */
-.reveal {
-  animation: fade-up 0.6s ease both;
-}
+.reveal { animation: fade-up 0.6s ease both; }
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(18px); }
@@ -176,11 +176,15 @@ body {
   50% { transform: translate3d(0, -22px, 0) scale(1.06); }
 }
 
-/* Respect users who ask for less motion: freeze tilt, orbs and entrances. */
 @media (prefers-reduced-motion: reduce) {
-  .tilt, .card-3d, .orb, .reveal {
+  .card-3d, .orb, .reveal {
     animation: none !important;
     transition: none !important;
     transform: none !important;
+  }
+  /* Keep the sun centred; just drop its parallax offset. */
+  .sun-disc {
+    transition: none !important;
+    transform: translate(-50%, 0) !important;
   }
 }

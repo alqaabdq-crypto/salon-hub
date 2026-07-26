@@ -247,6 +247,13 @@
     "cardBook": "Book now",
     "stat1Label": "Languages",
     "stat2Label": "Cities live",
-    "stat3Label": "Verified salons"
+    "stat3Label": "Verified salons",
+    "heroTitle": "Trusted salons, booked beautifully.",
+    "pillNew": "New",
+    "pillText": "Now booking in 3 cities",
+    "appBrowse": "Browse",
+    "appBookings": "Bookings",
+    "appFavourites": "Favourites",
+    "appProfile": "Profile"
   }
 }

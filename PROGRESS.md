@@ -14,6 +14,34 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
+**Asked (2026-07-26):** *"i need it similar to this one"* + a Pinterest link — the
+**RedSun** website template (Julia Pimonova): a dark, near-black landing with a
+centred hero, a two-part pill badge, a big white headline, dual CTAs and a glowing
+accent "sun" arc with a floating app bar. Keep the olive colour.
+
+**Answered:** Flipped the site to a permanent **dark theme** (RedSun-style) with a
+**bright olive** accent, and rebuilt the landing hero to match. Done via tokens, so
+it propagated app-wide: `globals.css` now forces dark through a class variant
+(`@custom-variant dark`) + `.dark` on `<html>` — safe because every page already
+carried `dark:` variants — with near-black surfaces (`--background #0a0b07`) and a
+bright accent (`--color-brand #b6d94a`); the primary button flips to dark text on
+the bright olive. New `.sun-disc`/`.sun-wrap` render the glowing rising-sun arc.
+The hero (`interactive-hero.tsx`) is now centred RedSun-style: pill badge → white
+headline → subtitle → ghost + solid CTAs → the olive sun → a floating glass app
+bar, with the sun and bar parallaxing to the cursor. New bilingual copy (hero
+title, pill, app-bar labels) added to `Home` in en/ar (key sets identical).
+Contrast re-verified for dark (all ≥ 7:1). Rebuilt outside OneDrive, restarted
+behind the tunnel; verified via the public URL (dark token `0a0b07` + olive
+`b6d94a` in the served CSS, old olive count 0, both locales 200). Could not grab a
+Playwright screenshot — cached WebKit build mismatches the installed
+`playwright-core` — so the sun is unverified *visually* and may want tuning.
+
+**Superseded:** *"3D features / interactive page"* (2026-07-26) — the glass/depth
+utilities, cursor-parallax and reduced-motion guards from that pass carry forward;
+the tilt booking-card was replaced by this RedSun hero. Its `card*` message keys
+are now unused (harmless).
+
+<!-- prior 3D-request block retained below for history -->
 **Asked (2026-07-26):** *"i need it to look modern … 3D features and also have an
 interactive page"* (keeping the olive colour).
 

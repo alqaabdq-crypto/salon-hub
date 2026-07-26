@@ -247,6 +247,13 @@
     "cardBook": "احجز الآن",
     "stat1Label": "اللغات",
     "stat2Label": "مدن مفعّلة",
-    "stat3Label": "صالونات موثّقة"
+    "stat3Label": "صالونات موثّقة",
+    "heroTitle": "صالونات موثوقة، تُحجز بأناقة.",
+    "pillNew": "جديد",
+    "pillText": "احجز الآن في ٣ مدن",
+    "appBrowse": "تصفح",
+    "appBookings": "الحجوزات",
+    "appFavourites": "المفضّلة",
+    "appProfile": "الملف"
   }
 }
