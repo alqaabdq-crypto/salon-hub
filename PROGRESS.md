@@ -14,38 +14,44 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-26):** *"integrate with claude design and make the url more
-colorful and then deploye it again"* — a visual redesign of the previously
-delivered tunnel, then relaunch it.
+**Asked (2026-07-26):** *"change the color of the design in the url, colors to be
+white and oily green"* — recolour the just-shipped design and push it out to the
+tunnel.
 
-**Answered:** Done. Built a cohesive brand system (rose-magenta → violet gradient
-with a gold rating accent) in `globals.css` as Tailwind v4 `@theme` tokens plus
-`.btn-brand` / `.text-gradient-brand` / `.card-surface` utilities, and applied it
-across every public surface — sticky blurred header with a gradient wordmark, a
-hero landing with a gradient headline and glow, colorful salon cards that lift on
-hover, brand-tinted badges, gold review stars, gradient book/apply buttons, and
-brand focus rings on inputs. The shared `Button` is now the gradient, so auth and
-dashboard primaries inherit it. Rebuilt **outside OneDrive** (`C:\temp\salon-hub-live`)
-to dodge the sync-corruption trap, verified the brand hex compiled into the served
-CSS and that all pages render 200 with data in both locales, then relaunched the
-Cloudflare quick tunnel.
+**Answered:** Done. The whole design is token-driven, so this was a `globals.css`
+edit: white canvas, oily olive-green identity (`--color-brand #556b1a`, brighter
+`--color-accent #7d9b2f`, olive-gold rating stars). Kept it accessible — brand is
+dark enough that both text-on-white and white-on-brand clear 4.5:1 (verified 5.99),
+the livelier accent is used only on large headings (3.18 ≥ 3:1) and decorative
+fills, and the primary button uses a dark `brand-strong → brand` gradient so its
+white label stays legible. Rebuilt **outside OneDrive**, restarted the server
+behind the *still-running* tunnel, and confirmed via the public URL that the olive
+tokens are in the served CSS and the old rose hex count is 0.
 
-**New tunnel:** `https://pet-varies-cables-improving.trycloudflare.com` (EN/AR
-both 200 through the public URL). Same caveats as before — **it dies when this
-laptop sleeps** and exposes the machine + local database publicly; the hostname
-is random and changes every relaunch.
+**Same tunnel (unchanged URL):** `https://pet-varies-cables-improving.trycloudflare.com`
+— EN/AR both 200. Same caveats: dies when this laptop sleeps, exposes the machine
++ local DB, hostname changes on any relaunch.
 
-**Still owed (unchanged):** the *durable* URL. A tunnel is still not a deployment.
-Vercel + Neon is ~15 minutes, all of it blocked on two things only the owner can
-do — one `vercel login` and a Neon connection string. See "Deployment" below.
+**Also this session:** a public GitHub repo was requested (`salon-hub`). Redesign
++ recolour are committed to `master`; the push is **blocked on `gh` auth** — the
+owner must run `gh auth login` in their own terminal (the in-chat web flow times
+out). Once authed: `git remote add origin …/salon-hub.git && git push -u origin master`.
+
+**Still owed (unchanged):** the *durable* URL (Vercel + Neon, ~15 min, blocked on
+`vercel login` + a Neon string) and the GitHub push (blocked on `gh` auth).
 
 ---
 
-### Prior request (2026-07-23)
+### Prior requests
 
-*"deploy this in URL so i can browse it"* → split into deployment-readiness (fixed
-the gitignored-Prisma-client build blocker; guarded the seed; fast-forwarded
-`master`) plus a first Cloudflare tunnel. The durable URL was left owed — still is.
+- **2026-07-26:** *"integrate with claude design and make the url more colorful"* —
+  built the token-driven brand system + utilities (`.btn-brand`,
+  `.text-gradient-brand`, `.card-surface`) and applied it across every public
+  surface; deployed via the first tunnel under this URL. Superseded by the olive
+  recolour above.
+- **2026-07-23:** *"deploy this in URL so i can browse it"* → deployment-readiness
+  (fixed the gitignored-Prisma-client build blocker; guarded the seed;
+  fast-forwarded `master`) plus a first Cloudflare tunnel. Durable URL still owed.
 
 ---
 

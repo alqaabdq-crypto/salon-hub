@@ -2,26 +2,31 @@
 
 /* ---------------------------------------------------------------------------
    Salon Hub brand system
-   A warm beauty-marketplace palette: rose-magenta primary, violet accent, a
-   little gold for ratings. Semantic surfaces (surface / hairline / muted) let
-   pages read cohesively in both light and dark without hardcoding grays.
+   A clean white canvas with an oily olive-green identity. Semantic surfaces
+   (surface / hairline / muted) let pages read cohesively in light and dark
+   without hardcoding grays.
+
+   Contrast note: text-brand and white-on-brand both need >=4.5:1, which forces
+   `--color-brand` dark. The lighter, livelier `--color-accent` is used only for
+   large headings (>=3:1) and decorative fills (ribbons, glows), never as a
+   background behind small white text. The primary button uses a dark
+   brand-strong -> brand gradient so its white label stays legible.
 --------------------------------------------------------------------------- */
 
 :root {
-  /* Soft rose-tinted canvas rather than pure white. */
-  --background: #fff5f9;
-  --foreground: #1e1520;
+  --background: #ffffff;
+  --foreground: #141a0b;
   --surface: #ffffff;
-  --hairline: #f4d7e4;
-  --muted: #7a6470;
+  --hairline: #e4ead2;
+  --muted: #5b6647;
 }
 
 /* Raw brand hues — these generate bg-brand / text-accent / from-brand etc. */
 @theme {
-  --color-brand: #e11d74;
-  --color-brand-strong: #b4125c;
-  --color-accent: #7c3aed;
-  --color-gold: #f5a524;
+  --color-brand: #556b1a;        /* deep oily olive — safe for text + white-on-it */
+  --color-brand-strong: #3f5113; /* darker olive for the button gradient base */
+  --color-accent: #7d9b2f;       /* brighter oily olive — headings + decoration */
+  --color-gold: #b0800f;         /* olive-gold, rating stars */
 }
 
 /* Semantic tokens wired to the CSS vars above so they follow the theme. */
@@ -40,32 +45,33 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #140a11;
-    --foreground: #f5ecf1;
-    --surface: #1f131b;
-    --hairline: #3a2431;
-    --muted: #b79caa;
+    --background: #0e1206;
+    --foreground: #eef3e2;
+    --surface: #161c0b;
+    --hairline: #2b3618;
+    --muted: #a7b389;
   }
 }
 
 body {
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* Faint dual-tone glow anchored top-left/top-right, over the tinted canvas.
+  /* Faint olive glow anchored top-left/top-right over the white canvas.
      background-attachment keeps it steady while content scrolls. */
   background-color: var(--background);
   background-image:
-    radial-gradient(60rem 40rem at 8% -10%, color-mix(in oklab, var(--color-brand) 16%, transparent), transparent 60%),
-    radial-gradient(52rem 36rem at 100% 0%, color-mix(in oklab, var(--color-accent) 14%, transparent), transparent 55%);
+    radial-gradient(60rem 40rem at 8% -10%, color-mix(in oklab, var(--color-brand) 14%, transparent), transparent 60%),
+    radial-gradient(52rem 36rem at 100% 0%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 55%);
   background-attachment: fixed;
 }
 
-/* Brand gradient fill, reused by the primary button and hero accents. */
+/* Brand gradient fill, reused by hero accents and decorative marks. */
 .gradient-brand {
   background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
 }
 
-/* Gradient text for the wordmark and hero headline. */
+/* Gradient text for the wordmark and hero headline. Used only on large,
+   bold type, where the >=3:1 large-text threshold applies. */
 .text-gradient-brand {
   background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
   -webkit-background-clip: text;
@@ -73,15 +79,16 @@ body {
   color: transparent;
 }
 
-/* Primary action: gradient pill with a soft brand shadow and a lift on hover. */
+/* Primary action: dark olive gradient (brand-strong -> brand) so the white
+   label clears 4.5:1 across the whole button, with a soft lift on hover. */
 .btn-brand {
-  background-image: linear-gradient(120deg, var(--color-brand), var(--color-accent));
+  background-image: linear-gradient(120deg, var(--color-brand-strong), var(--color-brand));
   color: #fff;
   box-shadow: 0 8px 20px -8px color-mix(in oklab, var(--color-brand) 70%, transparent);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
 .btn-brand:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.08);
   box-shadow: 0 12px 26px -8px color-mix(in oklab, var(--color-brand) 80%, transparent);
   transform: translateY(-1px);
 }
