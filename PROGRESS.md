@@ -14,41 +14,44 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-26):** *"change the color of the design in the url, colors to be
-white and oily green"* — recolour the just-shipped design and push it out to the
-tunnel.
+**Asked (2026-07-26):** *"i need it to look modern … 3D features and also have an
+interactive page"* (keeping the olive colour).
 
-**Answered:** Done. The whole design is token-driven, so this was a `globals.css`
-edit: white canvas, oily olive-green identity (`--color-brand #556b1a`, brighter
-`--color-accent #7d9b2f`, olive-gold rating stars). Kept it accessible — brand is
-dark enough that both text-on-white and white-on-brand clear 4.5:1 (verified 5.99),
-the livelier accent is used only on large headings (3.18 ≥ 3:1) and decorative
-fills, and the primary button uses a dark `brand-strong → brand` gradient so its
-white label stays legible. Rebuilt **outside OneDrive**, restarted the server
-behind the *still-running* tunnel, and confirmed via the public URL that the olive
-tokens are in the served CSS and the old rose hex count is 0.
+**Answered:** Done, on the landing page. Added a depth/motion layer to
+`globals.css` — `.scene` (perspective), `.glass` (frosted, blurred), `.shadow-depth`
+(layered brand-tinted shadow), `.tilt`, `.card-3d`, floating `.orb`s and a
+`fade-up` reveal, all wrapped in a `prefers-reduced-motion` guard. New client
+component `src/components/interactive-hero.tsx` ("use client" — the *only* JS
+surface; booking flow stays no-JS): a glass booking-card mock that **rotates
+toward the cursor in real 3D** (rotateX/rotateY from pointer position) with inner
+`translateZ` parallax layers, over ambient floating olive orbs. The landing page
+now also has glass feature cards that lift on hover and a stats strip, both with
+staggered entrance animations. New bilingual copy added under a `Home` namespace
+in `en.json` + `ar.json` (key sets verified identical, so no MISSING_MESSAGE).
+Rebuilt outside OneDrive, restarted behind the tunnel; verified via the public URL
+that the 3D/glass markup and client JS ship and both locales render 200.
 
 **Same tunnel (unchanged URL):** `https://pet-varies-cables-improving.trycloudflare.com`
-— EN/AR both 200. Same caveats: dies when this laptop sleeps, exposes the machine
-+ local DB, hostname changes on any relaunch.
+— hard-refresh (Ctrl+Shift+R) to clear the old CSS. Same caveats: dies on laptop
+sleep, exposes the machine + local DB, hostname changes on any relaunch.
 
-**Also this session:** a public GitHub repo was requested (`salon-hub`). Redesign
-+ recolour are committed to `master`; the push is **blocked on `gh` auth** — the
-owner must run `gh auth login` in their own terminal (the in-chat web flow times
-out). Once authed: `git remote add origin …/salon-hub.git && git push -u origin master`.
-
-**Still owed (unchanged):** the *durable* URL (Vercel + Neon, ~15 min, blocked on
-`vercel login` + a Neon string) and the GitHub push (blocked on `gh` auth).
+**Still owed (unchanged):** the public **GitHub push** (`salon-hub`) — everything
+is committed to `master`, blocked only on `gh auth login`, which the owner must run
+in their own terminal (the in-chat web flow times out); then `git remote add origin
+…/salon-hub.git && git push -u origin master`. And the *durable* URL (Vercel + Neon,
+~15 min, blocked on `vercel login` + a Neon string).
 
 ---
 
 ### Prior requests
 
+- **2026-07-26:** *"colors to be white and oily green"* — token-only `globals.css`
+  recolour to the current olive palette (brand `#556b1a`, accent `#7d9b2f`),
+  contrast-verified. Still current.
 - **2026-07-26:** *"integrate with claude design and make the url more colorful"* —
   built the token-driven brand system + utilities (`.btn-brand`,
-  `.text-gradient-brand`, `.card-surface`) and applied it across every public
-  surface; deployed via the first tunnel under this URL. Superseded by the olive
-  recolour above.
+  `.text-gradient-brand`, `.card-surface`) across every public surface. Recoloured
+  since, but the structure stands.
 - **2026-07-23:** *"deploy this in URL so i can browse it"* → deployment-readiness
   (fixed the gitignored-Prisma-client build blocker; guarded the seed;
   fast-forwarded `master`) plus a first Cloudflare tunnel. Durable URL still owed.

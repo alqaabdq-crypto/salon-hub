@@ -106,3 +106,81 @@ body {
   border-color: color-mix(in oklab, var(--color-brand) 45%, var(--hairline));
   box-shadow: 0 14px 30px -18px color-mix(in oklab, var(--color-brand) 60%, transparent);
 }
+
+/* ---------------------------------------------------------------------------
+   Depth & motion — the "modern / 3D" layer
+--------------------------------------------------------------------------- */
+
+/* A 3D stage. Children with translateZ() gain real parallax depth. */
+.scene {
+  perspective: 1200px;
+}
+
+/* Frosted glass over the olive glow, so cards read as floating panels. */
+.glass {
+  background-color: color-mix(in oklab, var(--surface) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid color-mix(in oklab, var(--color-brand) 16%, var(--hairline));
+}
+
+/* Layered, brand-tinted shadow — the single biggest "3D" cue. */
+.shadow-depth {
+  box-shadow:
+    0 1px 1px color-mix(in oklab, var(--foreground) 6%, transparent),
+    0 10px 20px -10px color-mix(in oklab, var(--color-brand) 30%, transparent),
+    0 30px 55px -25px color-mix(in oklab, var(--color-brand) 38%, transparent);
+}
+
+/* The hero card: rotates toward the cursor. --rx/--ry are set from JS. */
+.tilt {
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+}
+/* Inner layers pop forward for parallax; set via translateZ utility below. */
+.layer-1 { transform: translateZ(40px); }
+.layer-2 { transform: translateZ(70px); }
+
+/* Feature cards: a gentle CSS-only float on hover (needs a .scene ancestor). */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-3d:hover {
+  transform: translateY(-6px) scale(1.015);
+}
+
+/* Always-on ambient orbs behind the hero. */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(46px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: orb-float 9s ease-in-out infinite;
+}
+
+/* Staggered entrance for content below the fold. */
+.reveal {
+  animation: fade-up 0.6s ease both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes orb-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -22px, 0) scale(1.06); }
+}
+
+/* Respect users who ask for less motion: freeze tilt, orbs and entrances. */
+@media (prefers-reduced-motion: reduce) {
+  .tilt, .card-3d, .orb, .reveal {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

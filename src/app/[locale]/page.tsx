@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import { InteractiveHero } from "@/components/interactive-hero";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -9,41 +9,56 @@ export default async function LandingPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const t = await getTranslations("Landing");
-  const tNav = await getTranslations("Nav");
+  const th = await getTranslations("Home");
+
+  const features = [
+    { icon: "⚡", title: th("feature1Title"), desc: th("feature1Desc") },
+    { icon: "🛡️", title: th("feature2Title"), desc: th("feature2Desc") },
+    { icon: "🌐", title: th("feature3Title"), desc: th("feature3Desc") },
+  ];
+
+  const stats = [
+    { value: "2", label: th("stat1Label") },
+    { value: "3", label: th("stat2Label") },
+    { value: "100%", label: th("stat3Label") },
+  ];
 
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-center gap-5 overflow-hidden p-8 text-center">
-      {/* Soft brand glow behind the hero. */}
-      <div
-        aria-hidden
-        className="gradient-brand pointer-events-none absolute -top-24 h-72 w-72 rounded-full opacity-20 blur-3xl"
-      />
+    <main className="flex flex-1 flex-col">
+      <InteractiveHero />
 
-      <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface/60 px-4 py-1.5 text-sm font-medium text-brand backdrop-blur">
-        <span className="gradient-brand h-2 w-2 rounded-full" aria-hidden />
-        {tNav("brand")}
-      </span>
+      {/* Feature cards — glass panels that float on hover. */}
+      <section className="scene mx-auto w-full max-w-6xl px-6 pb-8">
+        <div className="grid gap-5 sm:grid-cols-3">
+          {features.map((f, i) => (
+            <div
+              key={f.title}
+              className="card-3d glass shadow-depth reveal rounded-3xl p-6"
+              style={{ animationDelay: `${i * 90}ms` }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10 text-2xl">
+                <span aria-hidden>{f.icon}</span>
+              </div>
+              <h3 className="mt-4 text-lg font-bold">{f.title}</h3>
+              <p className="mt-1.5 text-sm text-muted">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <h1 className="max-w-2xl text-4xl font-extrabold tracking-tight sm:text-6xl">
-        <span className="text-gradient-brand">{t("title")}</span>
-      </h1>
-      <p className="max-w-xl text-lg text-muted">{t("subtitle")}</p>
-
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
-        <Link
-          href="/salons"
-          className="btn-brand rounded-full px-7 py-3 font-semibold"
-        >
-          {t("browse")}
-        </Link>
-        <Link
-          href="/auth/register"
-          className="rounded-full border border-brand/40 px-7 py-3 font-semibold text-brand transition hover:bg-brand/10"
-        >
-          {t("cta")}
-        </Link>
-      </div>
+      {/* Stats strip. */}
+      <section className="mx-auto w-full max-w-6xl px-6 pb-20">
+        <div className="glass shadow-depth reveal grid grid-cols-3 gap-4 rounded-3xl p-8">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <p className="text-3xl font-extrabold sm:text-4xl">
+                <span className="text-gradient-brand">{s.value}</span>
+              </p>
+              <p className="mt-1 text-xs font-medium text-muted sm:text-sm">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

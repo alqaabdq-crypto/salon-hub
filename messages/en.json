@@ -231,5 +231,22 @@
     "FRI": "Friday",
     "SAT": "Saturday",
     "SUN": "Sunday"
+  },
+  "Home": {
+    "eyebrow": "Beauty booking, reimagined",
+    "feature1Title": "Book in seconds",
+    "feature1Desc": "Pick a salon, a service and a time — no phone calls, no waiting.",
+    "feature2Title": "Trusted & verified",
+    "feature2Desc": "Every salon is reviewed and approved before it ever appears.",
+    "feature3Title": "Arabic & English",
+    "feature3Desc": "A fully bilingual experience, right-to-left and left-to-right.",
+    "cardBadge": "Featured",
+    "cardService": "Haircut & Style",
+    "cardMeta": "45 min · Riyadh",
+    "cardPrice": "SAR 150",
+    "cardBook": "Book now",
+    "stat1Label": "Languages",
+    "stat2Label": "Cities live",
+    "stat3Label": "Verified salons"
   }
 }
