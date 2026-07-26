@@ -1,6 +1,6 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-27
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
@@ -14,60 +14,41 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-26):** *"i need it similar to this one"* + a Pinterest link — the
-**RedSun** website template (Julia Pimonova): a dark, near-black landing with a
-centred hero, a two-part pill badge, a big white headline, dual CTAs and a glowing
-accent "sun" arc with a floating app bar. Keep the olive colour.
+**Asked (2026-07-27):** *"link my existing GitHub repo and publish the whole
+project publicly"* (after running `gh auth login` in their own terminal).
 
-**Answered:** Flipped the site to a permanent **dark theme** (RedSun-style) with a
-**bright olive** accent, and rebuilt the landing hero to match. Done via tokens, so
-it propagated app-wide: `globals.css` now forces dark through a class variant
-(`@custom-variant dark`) + `.dark` on `<html>` — safe because every page already
-carried `dark:` variants — with near-black surfaces (`--background #0a0b07`) and a
-bright accent (`--color-brand #b6d94a`); the primary button flips to dark text on
-the bright olive. New `.sun-disc`/`.sun-wrap` render the glowing rising-sun arc.
-The hero (`interactive-hero.tsx`) is now centred RedSun-style: pill badge → white
-headline → subtitle → ghost + solid CTAs → the olive sun → a floating glass app
-bar, with the sun and bar parallaxing to the cursor. New bilingual copy (hero
-title, pill, app-bar labels) added to `Home` in en/ar (key sets identical).
-Contrast re-verified for dark (all ≥ 7:1). Rebuilt outside OneDrive, restarted
-behind the tunnel; verified via the public URL (dark token `0a0b07` + olive
-`b6d94a` in the served CSS, old olive count 0, both locales 200). Could not grab a
-Playwright screenshot — cached WebKit build mismatches the installed
-`playwright-core` — so the sun is unverified *visually* and may want tuning.
+**Answered:** Done. Authenticated as **`alqaabdq-crypto`**, linked the existing
+`salon-hub` repo as `origin`, and pushed the full history `master → main`. The
+remote held only a placeholder *"Initial commit"* (`.gitattributes`), replaced via
+`--force-with-lease` — nothing of value lost. Flipped the repo **private → public**.
+Now live: **https://github.com/alqaabdq-crypto/salon-hub** (default branch `main`,
+15 commits). Local `master` tracks `origin/main`, so future publishes are a plain
+`git push` — no more auth setup.
+⚠️ The public `README.md` still documents the demo passwords (`admin1234` /
+`owner1234`), visible to anyone. Offered to scrub them — **not yet done.**
 
-**Superseded:** *"3D features / interactive page"* (2026-07-26) — the glass/depth
-utilities, cursor-parallax and reduced-motion guards from that pass carry forward;
-the tilt booking-card was replaced by this RedSun hero. Its `card*` message keys
-are now unused (harmless).
+**Design shipped this session (all committed, all live on the tunnel):**
+- **RedSun dark redesign** (from a Pinterest reference) — forced dark theme
+  (`@custom-variant dark` + `.dark` on `<html>`, safe as every page is dark-aware),
+  near-black surfaces (`--background #0a0b07`), bright olive accent
+  (`--color-brand #b6d94a`), dark-text button, and a glowing rising-sun arc
+  (`.sun-disc`/`.sun-wrap`). Centred hero: pill → white headline → dual CTAs → sun →
+  floating glass app bar, with sun + bar parallaxing to the cursor. Dark contrast
+  ≥ 7:1. ⚠️ **Never screenshot-verified** (Playwright/WebKit version mismatch) — the
+  sun-glow may want visual tuning.
+- **3D / interactive layer** — `.scene` / `.glass` / `.shadow-depth` / `.card-3d`,
+  floating orbs, `fade-up` entrances, all behind a `prefers-reduced-motion` guard.
+  The hero is the only JS surface; the booking flow stays no-JS.
+- **Colour** — olive palette (replaced an initial rose/violet "colourful" system).
+  Unused `card*` keys in the `Home` namespace are harmless leftovers.
 
-<!-- prior 3D-request block retained below for history -->
-**Asked (2026-07-26):** *"i need it to look modern … 3D features and also have an
-interactive page"* (keeping the olive colour).
+**Live tunnel (unchanged URL):** `https://pet-varies-cables-improving.trycloudflare.com`
+— hard-refresh (Ctrl+Shift+R) to clear old CSS. Caveats: **dies when this laptop
+sleeps**, exposes the machine + local DB, hostname changes on any relaunch.
 
-**Answered:** Done, on the landing page. Added a depth/motion layer to
-`globals.css` — `.scene` (perspective), `.glass` (frosted, blurred), `.shadow-depth`
-(layered brand-tinted shadow), `.tilt`, `.card-3d`, floating `.orb`s and a
-`fade-up` reveal, all wrapped in a `prefers-reduced-motion` guard. New client
-component `src/components/interactive-hero.tsx` ("use client" — the *only* JS
-surface; booking flow stays no-JS): a glass booking-card mock that **rotates
-toward the cursor in real 3D** (rotateX/rotateY from pointer position) with inner
-`translateZ` parallax layers, over ambient floating olive orbs. The landing page
-now also has glass feature cards that lift on hover and a stats strip, both with
-staggered entrance animations. New bilingual copy added under a `Home` namespace
-in `en.json` + `ar.json` (key sets verified identical, so no MISSING_MESSAGE).
-Rebuilt outside OneDrive, restarted behind the tunnel; verified via the public URL
-that the 3D/glass markup and client JS ship and both locales render 200.
-
-**Same tunnel (unchanged URL):** `https://pet-varies-cables-improving.trycloudflare.com`
-— hard-refresh (Ctrl+Shift+R) to clear the old CSS. Same caveats: dies on laptop
-sleep, exposes the machine + local DB, hostname changes on any relaunch.
-
-**Still owed (unchanged):** the public **GitHub push** (`salon-hub`) — everything
-is committed to `master`, blocked only on `gh auth login`, which the owner must run
-in their own terminal (the in-chat web flow times out); then `git remote add origin
-…/salon-hub.git && git push -u origin master`. And the *durable* URL (Vercel + Neon,
-~15 min, blocked on `vercel login` + a Neon string).
+**Still owed:** the *durable* URL (Vercel + Neon, ~15 min, blocked on `vercel login`
++ a Neon connection string). Optional follow-ups: scrub the demo passwords from the
+now-public README; visually tune the sun-glow.
 
 ---
 
@@ -632,15 +613,21 @@ The milestone table says shipped; this says what "shipped" does not mean.
 
 ## Picking up
 
-**State at 2026-07-24.** All five milestones are on **`master`** at `cee05ef`.
-Working tree clean; typecheck, lint, build and 43 tests all pass. Local database
-is migrated and seeded, and holds no bookings, no salons beyond the three seeded,
-and no test users — every verification run cleaned up after itself.
+**State at 2026-07-27.** All work is on **`master`** at `117ed87`, which now also
+lives on **`origin/main`** in the **public** repo
+`github.com/alqaabdq-crypto/salon-hub` (`master` tracks it; future publishes are a
+plain `git push`). Working tree clean. The product is functionally complete
+(M1–M5) and now wears a RedSun-style **dark theme** with a bright-olive identity;
+the landing page is interactive (cursor-driven sun-glow + floating app bar). Local
+database migrated and seeded (3 salons), Docker Postgres up. A Cloudflare tunnel is
+currently serving a production build from `C:\temp\salon-hub-live` at
+`https://pet-varies-cables-improving.trycloudflare.com` — **it dies when this
+laptop sleeps.**
 
 The whole product works end to end locally: a salon owner can sign up, get
 approved, list services and staff, and take a booking a customer made on a phone,
-confirm it, and be paid for it. It is also deploy-ready, and has never been
-deployed.
+confirm it, and be paid for it. It is deploy-ready and now published to GitHub, but
+has never been deployed to a host.
 
 **Two things have never been exercised for real, and both need an account the
 project owner holds:**
@@ -651,6 +638,11 @@ project owner holds:**
   call itself is not.
 - **A real host.** See "Deployment" — blocked on `vercel login` and a Neon
   connection string, nothing else.
+
+**Two cheap design follow-ups left open:** the RedSun **sun-glow was never
+screenshot-verified** (Playwright/WebKit version mismatch), so eyeball it and tune
+if needed; and the now-public **README still lists the demo passwords**
+(`admin1234` / `owner1234`) — scrub if that matters.
 
 Suggested order:
 
