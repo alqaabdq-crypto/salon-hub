@@ -103,9 +103,10 @@ Now live: **https://github.com/alqaabdq-crypto/salon-hub** (default branch `main
 - **Colour** — olive palette (replaced an initial rose/violet "colourful" system).
   Unused `card*` keys in the `Home` namespace are harmless leftovers.
 
-**Live tunnel (unchanged URL):** `https://pet-varies-cables-improving.trycloudflare.com`
-— hard-refresh (Ctrl+Shift+R) to clear old CSS. Caveats: **dies when this laptop
-sleeps**, exposes the machine + local DB, hostname changes on any relaunch.
+**Live tunnel (ephemeral):** the Cloudflare quick-tunnel hostname **changes on
+every relaunch** and dies when the laptop sleeps (last live this session:
+`begun-motorcycle-del-hazardous.trycloudflare.com`). Hard-refresh (Ctrl+Shift+R)
+after any redeploy to clear old CSS; it exposes the machine + local DB while up.
 
 **Still owed:** the *durable* URL (Vercel + Neon, ~15 min, blocked on `vercel login`
 + a Neon connection string). Optional follow-ups: scrub the demo passwords from the
@@ -196,6 +197,71 @@ M3 sits on the same branch. All migrations are already applied to the local
 database; anyone pulling these changes runs `npx prisma migrate dev` to catch up.
 The M3 migration creates the `btree_gist` extension, which needs a role that may
 create extensions — on a managed Postgres that is not always the app's own user.
+
+---
+
+## Completed 2026-07-27 — publish, redesign, reviews, revenue
+
+A UI/product session layered on the finished M1–M5 core. Everything below is
+committed to `master` and pushed to the public `origin/main`; HEAD `2ccee68`.
+
+### Published to GitHub (public)
+
+Linked the owner's existing `salon-hub` repo, pushed the full history
+`master → main` (replaced a placeholder "Initial commit" via `--force-with-lease`),
+and flipped it **private → public**: `github.com/alqaabdq-crypto/salon-hub`.
+`master` tracks `origin/main`, so publishing is now a plain `git push`. ⚠️ The
+README still lists the demo passwords (`admin1234` / `owner1234`), now publicly
+visible — scrub offered, not yet done.
+
+### Design — RedSun-style dark theme
+
+Iterated colourful → white/olive → a dark, near-black "RedSun" look (from a
+Pinterest reference), keeping olive as a bright accent. Dark is forced site-wide
+via a class variant (`@custom-variant dark` + `.dark` on `<html>`), safe because
+every page was already dark-aware. Near-black surfaces (`--background #0a0b07`),
+bright accent (`--color-brand #b6d94a`), dark-text primary button. Landing hero
+rebuilt centred: pill badge → white headline → dual CTAs → a glowing olive "sun"
+arc (`.sun-disc`/`.sun-wrap`) → a floating glass app bar, with sun + bar
+parallaxing to the cursor. Depth/motion utilities (`.scene`, `.glass`,
+`.shadow-depth`, `.card-3d`, orbs, `fade-up`) behind a `prefers-reduced-motion`
+guard; the hero is the only JS surface. Dark contrast ≥ 7:1. ⚠️ Never
+screenshot-verified (Playwright/WebKit mismatch) — the sun-glow may want tuning.
+
+### Website reviews (testimonials)
+
+New `SiteReview` model + migration `20260727162818_site_reviews` (name, rating 1–5,
+comment, createdAt). A "Loved by our community" section at the **bottom of the
+landing page**: a no-JS Server-Action form (name, star rating, comment) plus
+gold-star review cards in dark glass, bilingual (`SiteReviews` namespace, ICU
+plurals). `createSiteReview` is zod-validated, **open submission (no login)**.
+Verified end-to-end (submit → 303 → persist → render; error/empty/Arabic states).
+Distinct from the still-missing per-salon review writing. ⚠️ Open submission is
+spam-exposed; one test review ("Sara A.") left in the DB as a visible example.
+
+### Owner Revenue tab
+
+New `/owner/revenue`: four tiles — your earnings (Σ `salonNet` on SUCCEEDED), gross
+processed, platform fees, paid-bookings count — an *awaiting payout* pill, and a
+recent-payments list. Money summed with `Prisma.Decimal`. `navRevenue` link added
+to the owner layout; bilingual `rev*` copy. Verified authed as `owner.rose`.
+
+### Owner Overview revenue chart
+
+Server-rendered inline SVG (`src/components/revenue-chart.tsx`): monthly net
+revenue for the last 6 months on `/owner`, linking to the Revenue tab. Built to the
+dataviz method — single series (no legend), one brand-olive hue, text in ink tokens,
+recessive baseline, rounded bars, per-bar value labels + `aria-label` summary. The
+page buckets SUCCEEDED `salonNet` by the booking's month. ⚠️ Structural
+verification only (not screenshot-eyeballed).
+
+### Demo revenue data — local only, not in git
+
+`scripts/seed-sample-revenue.ts` — idempotent (marker-tagged rows, cleared on
+re-run), resolves salon/services/staff/customers by name/email. Seeds 6 paid + 1
+refunded booking for the Rose salon spread ~one per month, so the tiles
+(net SAR 986 / gross 1,160 / fees 174 / 6 paid) and the chart (Feb–Jul trend)
+populate. Demo-only; safe to re-run or delete.
 
 ---
 
@@ -549,15 +615,19 @@ The milestone table says shipped; this says what "shipped" does not mean.
   request shape Moyasar actually accepts, because that needs `MOYASAR_SECRET_KEY`
   from a real dashboard. **Get test keys (`sk_test_…`) and run one booking
   through before believing the invoice call works.**
-- **Customers cannot write reviews.** Reviews render on salon pages and the
-  schema has held `Review` since M1, but nothing creates one — and `avgRating` /
-  `reviewCount` are denormalised with nothing maintaining them.
+- **Customers still cannot write *salon* reviews.** The per-salon `Review` renders
+  on salon pages and the schema has held it since M1, but nothing creates one — and
+  `avgRating` / `reviewCount` are denormalised with nothing maintaining them.
+  (Note: a separate **website-testimonials** feature — `SiteReview`, on the landing
+  page — *was* added 2026-07-27. That is platform feedback, not salon reviews; this
+  gap is still open.)
 - **Nothing has ever been deployed.** No hosting, no CI, no migrations run
   anywhere but this laptop — the public URL so far was a tunnel *to* this laptop,
   which is not the same thing and proves nothing about a cloud environment. The
   `btree_gist` extension in the M3 migration needs a role permitted to create
   extensions, which on managed Postgres is often not the application's own user.
-  The repo is now deploy-*ready* (see "Deployment"); it has never been deploy-*ed*.
+  The repo is now deploy-*ready* and **published publicly to GitHub** (2026-07-27),
+  but it has still never been deploy-*ed* to a host.
 - **No notifications.** Neither the customer nor the salon is told anything
   outside the web UI. SMS/WhatsApp is near-mandatory in this market.
 - **No photo uploads.** `coverImageUrl` and `SalonPhoto` are modelled; no page
@@ -674,16 +744,20 @@ The milestone table says shipped; this says what "shipped" does not mean.
 
 ## Picking up
 
-**State at 2026-07-27.** All work is on **`master`** at `117ed87`, which now also
-lives on **`origin/main`** in the **public** repo
-`github.com/alqaabdq-crypto/salon-hub` (`master` tracks it; future publishes are a
-plain `git push`). Working tree clean. The product is functionally complete
-(M1–M5) and now wears a RedSun-style **dark theme** with a bright-olive identity;
-the landing page is interactive (cursor-driven sun-glow + floating app bar). Local
-database migrated and seeded (3 salons), Docker Postgres up. A Cloudflare tunnel is
-currently serving a production build from `C:\temp\salon-hub-live` at
-`https://pet-varies-cables-improving.trycloudflare.com` — **it dies when this
-laptop sleeps.**
+**State at 2026-07-27 (end of session).** All work is on **`master`** at `2ccee68`,
+mirrored to the **public** `origin/main` (`github.com/alqaabdq-crypto/salon-hub`);
+`master` tracks it, so publishing is a plain `git push`. Working tree clean. The
+M1–M5 core is functionally complete; on top of it this session added a RedSun-style
+**dark theme** (bright-olive, interactive landing), a **website-testimonials**
+feature, an owner **Revenue tab**, and a **monthly revenue chart** on the overview
+(all detailed under "Completed 2026-07-27"). Docker Postgres is up and migrated;
+beyond the base seed (3 salons) it now also holds **demo revenue data** (6 paid + 1
+refunded booking for the Rose salon, via `scripts/seed-sample-revenue.ts`), one
+test `SiteReview`, and a couple of leftover test accounts plus the owner's own
+customer account — so it is **no longer the pristine seed**. A Cloudflare quick
+tunnel serves the production build from `C:\temp\salon-hub-live`; **its hostname
+rotates on every relaunch and it dies when the laptop sleeps**, so treat any pinned
+URL as ephemeral.
 
 The whole product works end to end locally: a salon owner can sign up, get
 approved, list services and staff, and take a booking a customer made on a phone,
