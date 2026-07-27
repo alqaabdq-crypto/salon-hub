@@ -166,7 +166,21 @@
     "actionCONFIRMED": "تأكيد",
     "actionCOMPLETED": "تحديد كمكتمل",
     "actionNO_SHOW": "تحديد كعدم حضور",
-    "actionCANCELLED": "إلغاء"
+    "actionCANCELLED": "إلغاء",
+    "navRevenue": "الإيرادات",
+    "revSubtitle": "إجمالي الأرباح من الحجوزات المدفوعة.",
+    "revNet": "أرباحك",
+    "revNetHint": "بعد عمولة المنصة",
+    "revGross": "إجمالي المعالَج",
+    "revGrossHint": "إجمالي ما دُفع من العملاء",
+    "revFees": "رسوم المنصة",
+    "revFeesHint": "العمولة التي تأخذها صالون هَب",
+    "revPaidCount": "حجوزات مدفوعة",
+    "revPaidHint": "مدفوعات ناجحة",
+    "revAwaiting": "{amount} بانتظار التحويل",
+    "revRecent": "أحدث المدفوعات",
+    "revGrossOf": "من {amount}",
+    "revEmpty": "لا توجد إيرادات بعد. بمجرد أن يدفع العملاء مقابل الحجوزات المؤكدة، ستظهر أرباحك هنا."
   },
   "Admin": {
     "title": "لوحة المشرف",

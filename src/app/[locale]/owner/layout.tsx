@@ -30,6 +30,7 @@ export default async function OwnerLayout({ children, params }: Props) {
           links={[
             { href: "/owner", label: t("navOverview") },
             { href: "/owner/bookings", label: t("navBookings") },
+            { href: "/owner/revenue", label: t("navRevenue") },
             { href: "/owner/services", label: t("navServices") },
             { href: "/owner/staff", label: t("navStaff") },
             { href: "/owner/profile", label: t("navProfile") },

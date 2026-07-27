@@ -166,7 +166,21 @@
     "actionCONFIRMED": "Confirm",
     "actionCOMPLETED": "Mark completed",
     "actionNO_SHOW": "Mark no-show",
-    "actionCANCELLED": "Cancel"
+    "actionCANCELLED": "Cancel",
+    "navRevenue": "Revenue",
+    "revSubtitle": "All-time earnings from paid bookings.",
+    "revNet": "Your earnings",
+    "revNetHint": "After platform commission",
+    "revGross": "Gross processed",
+    "revGrossHint": "Total charged to customers",
+    "revFees": "Platform fees",
+    "revFeesHint": "Commission taken by Salon Hub",
+    "revPaidCount": "Paid bookings",
+    "revPaidHint": "Successful payments",
+    "revAwaiting": "{amount} awaiting payout",
+    "revRecent": "Recent payments",
+    "revGrossOf": "of {amount}",
+    "revEmpty": "No revenue yet. Once customers pay for confirmed bookings, your earnings will show up here."
   },
   "Admin": {
     "title": "Admin",

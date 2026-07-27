@@ -14,7 +14,24 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-27, latest):** *"add a feature to add reviews for the website and
+**Asked (2026-07-27, latest):** *"another option in the owner dashboard for
+revenue."*
+
+**Answered:** Added an **Owner → Revenue** tab (`/owner/revenue`). Reads the salon's
+`Payment` rows (joined via the booking) and shows four tiles — **your earnings**
+(Σ `salonNet` of SUCCEEDED), **gross processed** (`amount`), **platform fees**
+(`platformFee`), and **paid-bookings** count — plus an *awaiting payout* pill (net
+not yet linked to a `Payout`) and a recent-payments list. All money summed with
+`Prisma.Decimal`, so no float drift. New `navRevenue` link in the owner layout and
+`rev*` keys in the `Owner` namespace (en/ar, 80 keys each, sets identical).
+Verified **authed** as `owner.rose` (logged in through the credentials flow): the
+tab, tiles and nav link all render. ⚠️ There are **0 payments** in the DB, so it
+currently shows the empty state — offered to seed a sample paid booking so the
+numbers populate. Committed + pushed to the public repo.
+
+---
+
+**Asked (2026-07-27):** *"add a feature to add reviews for the website and
 make it in the bottom of the website."*
 
 **Answered:** Added a **website-testimonials** feature at the bottom of the landing
