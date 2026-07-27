@@ -255,5 +255,19 @@
     "appBookings": "الحجوزات",
     "appFavourites": "المفضّلة",
     "appProfile": "الملف"
+  },
+  "SiteReviews": {
+    "title": "محبوب من مجتمعنا",
+    "subtitle": "اطّلع على آراء الناس حول صالون هَب — وأضِف رأيك.",
+    "nameLabel": "اسمك",
+    "namePlaceholder": "مثال: سارة أ.",
+    "ratingLabel": "التقييم",
+    "stars": "{count, plural, zero {# نجمة} one {نجمة واحدة} two {نجمتان} few {# نجوم} many {# نجمة} other {# نجمة}}",
+    "commentLabel": "رأيك",
+    "commentPlaceholder": "أخبرنا برأيك…",
+    "submit": "أضف رأيك",
+    "successMsg": "شكرًا! تم نشر رأيك.",
+    "errorMsg": "هناك خطأ ما — تحقّق من الاسم والتقييم والرأي ثم أعد المحاولة.",
+    "empty": "لا توجد آراء بعد — كن أول من يشارك تجربته."
   }
 }

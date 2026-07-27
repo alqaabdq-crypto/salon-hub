@@ -1,12 +1,15 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { InteractiveHero } from "@/components/interactive-hero";
+import { SiteReviews } from "@/components/site-reviews";
 
 type Props = {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ review?: string }>;
 };
 
-export default async function LandingPage({ params }: Props) {
+export default async function LandingPage({ params, searchParams }: Props) {
   const { locale } = await params;
+  const { review } = await searchParams;
   setRequestLocale(locale);
 
   const th = await getTranslations("Home");
@@ -59,6 +62,9 @@ export default async function LandingPage({ params }: Props) {
           ))}
         </div>
       </section>
+
+      {/* Website reviews / testimonials — bottom of the landing page. */}
+      <SiteReviews locale={locale} status={review} />
     </main>
   );
 }

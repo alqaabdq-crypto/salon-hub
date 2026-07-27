@@ -14,6 +14,26 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
+**Asked (2026-07-27, latest):** *"add a feature to add reviews for the website and
+make it in the bottom of the website."*
+
+**Answered:** Added a **website-testimonials** feature at the bottom of the landing
+page — reviews *about Salon Hub itself*, which is **distinct from the still-unbuilt
+per-salon review writing** (see "What is genuinely not done"). New `SiteReview`
+model + migration `20260727162818_site_reviews` (name, rating 1–5, comment,
+createdAt). Server action `createSiteReview` (`src/server/site-review/actions.ts`)
+— zod-validated, **open submission (no login)**, redirects `/?review=ok|error#reviews`.
+Server component `site-reviews.tsx`: a no-JS Server-Action form (name, star rating,
+comment) plus gold-star review cards in dark glass, wired into the landing bottom
+via `<SiteReviews>`. Bilingual `SiteReviews` namespace in en/ar (ICU plurals for
+star counts). Verified end-to-end locally: a submitted review 303-redirects,
+persists, and renders; error/empty states and the Arabic section all render; no
+MISSING_MESSAGE. Committed + pushed to the public repo. ⚠️ Open submission is
+spam-exposed (length caps only); one test review ("Sara A.") sits in the DB as a
+visible example — delete it or gate the form behind `auth()` on request.
+
+---
+
 **Asked (2026-07-27):** *"link my existing GitHub repo and publish the whole
 project publicly"* (after running `gh auth login` in their own terminal).
 

@@ -255,5 +255,19 @@
     "appBookings": "Bookings",
     "appFavourites": "Favourites",
     "appProfile": "Profile"
+  },
+  "SiteReviews": {
+    "title": "Loved by our community",
+    "subtitle": "See what people say about Salon Hub — and add your own.",
+    "nameLabel": "Your name",
+    "namePlaceholder": "e.g. Sara A.",
+    "ratingLabel": "Rating",
+    "stars": "{count, plural, one {# star} other {# stars}}",
+    "commentLabel": "Your review",
+    "commentPlaceholder": "Tell us what you think…",
+    "submit": "Post review",
+    "successMsg": "Thanks! Your review has been posted.",
+    "errorMsg": "Something wasn’t right — please check your name, rating and review, then try again.",
+    "empty": "No reviews yet — be the first to share your experience."
   }
 }

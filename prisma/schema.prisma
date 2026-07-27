@@ -377,6 +377,18 @@ model Review {
   @@index([salonId])
 }
 
+/// Reviews of the Salon Hub platform itself (testimonials), shown at the bottom
+/// of the landing page. Unlike Review, these are not tied to a booking or salon.
+model SiteReview {
+  id        String   @id @default(cuid())
+  name      String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model Favorite {
   id         String @id @default(cuid())
   customerId String
