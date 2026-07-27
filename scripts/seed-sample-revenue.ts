@@ -44,15 +44,16 @@ async function main() {
     console.log(`Cleared ${oldIds.length} previous sample booking(s).`);
   }
 
-  // 6 paid + 1 refunded, spread across the last few weeks.
+  // 6 paid + 1 refunded, spread ~one per month across the last 6 months so the
+  // overview's monthly revenue chart shows a trend rather than a single bar.
   const plan = [
-    { daysAgo: 3, status: "SUCCEEDED" as const },
-    { daysAgo: 5, status: "SUCCEEDED" as const },
     { daysAgo: 8, status: "SUCCEEDED" as const },
-    { daysAgo: 12, status: "SUCCEEDED" as const },
-    { daysAgo: 15, status: "SUCCEEDED" as const },
-    { daysAgo: 20, status: "SUCCEEDED" as const },
-    { daysAgo: 10, status: "REFUNDED" as const },
+    { daysAgo: 40, status: "SUCCEEDED" as const },
+    { daysAgo: 72, status: "SUCCEEDED" as const },
+    { daysAgo: 104, status: "SUCCEEDED" as const },
+    { daysAgo: 136, status: "SUCCEEDED" as const },
+    { daysAgo: 168, status: "SUCCEEDED" as const },
+    { daysAgo: 20, status: "REFUNDED" as const },
   ];
 
   let net = 0, gross = 0, fees = 0, paid = 0;
@@ -106,6 +107,7 @@ async function main() {
             platformFee,
             salonNet,
             refundedAmount: refunded ? amount : null,
+            createdAt: start,
           },
         },
       },

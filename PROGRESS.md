@@ -14,7 +14,28 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-27, latest):** *"another option in the owner dashboard for
+**Asked (2026-07-27, latest):** *"in the overview I need a chart representing the
+revenue tab."*
+
+**Answered:** Added a **monthly net-revenue bar chart** to the owner **Overview**
+(`/owner`), above the catalog prompt, with a link through to the Revenue tab.
+Server-rendered inline SVG (`src/components/revenue-chart.tsx`) — **no client JS**,
+matching the site — built to the dataviz method: single series so **no legend**
+(the heading names it), one **brand-olive** hue for the bars, all text in **ink
+tokens** (`fill-foreground` / `fill-muted`, never the series colour), a recessive
+baseline, rounded bar tops, per-bar value labels (which double as the no-JS
+accessible data) and an `aria-label` summary. The page buckets SUCCEEDED
+`salonNet` by the booking's month over the last 6 months. The demo seeder was
+updated to spread the sample bookings ~one per month (Feb–Jul), so the chart shows
+a trend: Feb 128 / Mar 77 / Apr 357 / May 221 / Jun 128 / Jul 77 (SAR net).
+Verified authed as `owner.rose` (6 bars + month/value labels + Arabic title
+render; build clean). ⚠️ Structural verification only — not screenshot-eyeballed
+(the Playwright/WebKit mismatch again), so the layout may want a glance. Committed
++ pushed.
+
+---
+
+**Asked (2026-07-27):** *"another option in the owner dashboard for
 revenue."*
 
 **Answered:** Added an **Owner → Revenue** tab (`/owner/revenue`). Reads the salon's

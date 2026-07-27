@@ -180,7 +180,10 @@
     "revAwaiting": "{amount} awaiting payout",
     "revRecent": "Recent payments",
     "revGrossOf": "of {amount}",
-    "revEmpty": "No revenue yet. Once customers pay for confirmed bookings, your earnings will show up here."
+    "revEmpty": "No revenue yet. Once customers pay for confirmed bookings, your earnings will show up here.",
+    "revChartTitle": "Revenue — last 6 months",
+    "revChartHint": "Net earnings per month (SAR)",
+    "revChartEmpty": "No revenue in the last 6 months yet. Paid bookings will chart here."
   },
   "Admin": {
     "title": "Admin",

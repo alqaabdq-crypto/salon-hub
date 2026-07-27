@@ -2,6 +2,7 @@ import { getFormatter, getTranslations, setRequestLocale } from "next-intl/serve
 import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/content";
 import { NeedsSalon } from "@/components/needs-salon";
+import { RevenueChart, type RevenueBar } from "@/components/revenue-chart";
 import { auth } from "@/server/auth/config";
 import { prisma } from "@/server/db/prisma";
 import { getOwnedSalon } from "@/server/salon/owner";
@@ -57,6 +58,43 @@ export default async function OwnerOverviewPage({ params }: Props) {
 
   const isLive = salon.status === "APPROVED";
 
+  // Monthly net revenue for the last 6 months, bucketed by the booking's date.
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(1);
+    d.setMonth(d.getMonth() - (5 - i));
+    return { key: `${d.getFullYear()}-${d.getMonth()}`, date: d };
+  });
+
+  const revenuePayments = await prisma.payment.findMany({
+    where: {
+      status: "SUCCEEDED",
+      booking: { salonId: salon.id, startTime: { gte: months[0].date } },
+    },
+    select: { salonNet: true, booking: { select: { startTime: true } } },
+  });
+
+  const netByMonth = new Map<string, number>();
+  for (const payment of revenuePayments) {
+    const d = payment.booking.startTime;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    netByMonth.set(key, (netByMonth.get(key) ?? 0) + Number(payment.salonNet ?? 0));
+  }
+
+  const revenueBars: RevenueBar[] = months.map(({ key, date }) => {
+    const value = netByMonth.get(key) ?? 0;
+    return {
+      label: format.dateTime(date, { month: "short" }),
+      value,
+      display: format.number(value, { maximumFractionDigits: 0 }),
+    };
+  });
+
+  const revenueTotal = revenueBars.reduce((sum, bar) => sum + bar.value, 0);
+  const revenueChartAria = `${t("revChartTitle")}: ${revenueBars
+    .map((b) => `${b.label} ${format.number(b.value, { style: "currency", currency: "SAR", maximumFractionDigits: 0 })}`)
+    .join(", ")}`;
+
   return (
     <div>
       <section className="mt-8 rounded-xl border border-gray-200 p-5 dark:border-gray-800">
@@ -106,6 +144,27 @@ export default async function OwnerOverviewPage({ params }: Props) {
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{stat.label}</p>
           </Link>
         ))}
+      </section>
+
+      {/* Monthly revenue chart — a compact view of the Revenue tab. */}
+      <section className="mt-6 rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">{t("revChartTitle")}</h2>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{t("revChartHint")}</p>
+          </div>
+          <Link href="/owner/revenue" className="text-sm underline">
+            {t("navRevenue")}
+          </Link>
+        </div>
+
+        {revenueTotal > 0 ? (
+          <div className="mt-4">
+            <RevenueChart bars={revenueBars} ariaSummary={revenueChartAria} />
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">{t("revChartEmpty")}</p>
+        )}
       </section>
 
       {/* An empty catalog is the most common reason a freshly approved salon
