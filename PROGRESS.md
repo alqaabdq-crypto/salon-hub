@@ -25,9 +25,12 @@ not yet linked to a `Payout`) and a recent-payments list. All money summed with
 `Prisma.Decimal`, so no float drift. New `navRevenue` link in the owner layout and
 `rev*` keys in the `Owner` namespace (en/ar, 80 keys each, sets identical).
 Verified **authed** as `owner.rose` (logged in through the credentials flow): the
-tab, tiles and nav link all render. ⚠️ There are **0 payments** in the DB, so it
-currently shows the empty state — offered to seed a sample paid booking so the
-numbers populate. Committed + pushed to the public repo.
+tab, tiles and nav link all render. A **demo seeder** (`scripts/seed-sample-revenue.ts`
+— idempotent, tags rows with a marker note, looks records up by name/email) was
+added and run: 6 paid + 1 refunded booking for the Rose salon, so the tiles now
+show **net SAR 986 / gross 1,160 / fees 174 / 6 paid** with a refunded row in the
+list. Demo-only data (not in git); the seeder is safe to re-run or delete.
+Committed + pushed to the public repo.
 
 ---
 
