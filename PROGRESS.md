@@ -243,11 +243,28 @@ payments, as originally planned.
 | M3 | Booking engine — availability, overlap prevention, booking flow | ✅ Shipped (`2b86988`) |
 | M4 | Salon owner + admin dashboards | ✅ Shipped (`ee46d52`) |
 | M5 | Payments via Moyasar | ✅ Shipped (`ee46d52`) — needs live keys to exercise |
+| M6 | Design & product layer — dark theme, website testimonials, owner revenue tab + chart | ✅ Shipped (`2ccee68`) |
+| M7 | Location & discovery — owner map picker, proximity search, ratings surfaced | ✅ Shipped (`05ed9f1`) — ratings shown are seeded |
 
-**All seven original milestones are now covered.** M6 (reviews) and M7 (polish,
-SEO, deploy) from the first plan were folded into the renumbering: review display
+**All seven original milestones are covered.** The first plan's M6 (reviews) and M7
+(polish, SEO, deploy) were dissolved by the 2026-07-19 renumbering: review *display*
 shipped with M2, review *writing* has not been built, and deployment has not been
 attempted. See "What is genuinely not done" below.
+
+⚠️ **The M6 and M7 rows above are not those original milestones — the numbers were
+free and the sequence simply continued.** Both are work that came after the plan
+ran out, requested session by session rather than scoped up front:
+
+- **M6** is the 2026-07-27 UI and product session. Detail under "Completed
+  2026-07-27".
+- **M7** is the 2026-08-04 maps session, and it is the first milestone that ships
+  with a visible gap behind it: browse cards and map pins show star ratings, and
+  every one of them comes from a demo seeder, because nothing in the app writes a
+  review. Detail under "Completed 2026-08-04".
+
+Neither was anchored in a commit message the way `Milestone 1` and `M5 integrates
+Moyasar` were, so these numbers live only in this file. Treat the commit hashes,
+not the numbers, as the durable reference.
 
 **M2 breakdown** — all four parts built 2026-07-19:
 
@@ -284,7 +301,7 @@ create extensions — on a managed Postgres that is not always the app's own use
 
 ---
 
-## Completed 2026-08-04 — maps, proximity search, real ratings
+## Completed 2026-08-04 — M7: maps, proximity search, real ratings
 
 Committed to `master` and pushed to the public `origin/main`; HEAD `05ed9f1`.
 Provider decision taken by the project owner: **Leaflet + OpenStreetMap**, chosen
@@ -419,7 +436,7 @@ now in "Environment notes".
 
 ---
 
-## Completed 2026-07-27 — publish, redesign, reviews, revenue
+## Completed 2026-07-27 — M6: publish, redesign, reviews, revenue
 
 A UI/product session layered on the finished M1–M5 core. Everything below is
 committed to `master` and pushed to the public `origin/main`; HEAD `2ccee68`.
