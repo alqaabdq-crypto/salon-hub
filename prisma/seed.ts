@@ -60,6 +60,9 @@ type SalonSeed = {
   genderFocus: GenderFocus;
   city: string;
   address: string;
+  /** Map pin, roughly matching the written address above. */
+  lat: number;
+  lng: number;
   phone: string;
   ownerEmail: string;
   ownerName: string;
@@ -87,6 +90,8 @@ const salons: SalonSeed[] = [
     genderFocus: "WOMEN",
     city: "Riyadh",
     address: "King Fahd Road, Al Olaya",
+    lat: 24.6913,
+    lng: 46.6852,
     phone: "+966511000001",
     ownerEmail: "owner.rose@salonhub.sa",
     ownerName: "Hessa Al-Otaibi",
@@ -112,6 +117,8 @@ const salons: SalonSeed[] = [
     genderFocus: "MEN",
     city: "Jeddah",
     address: "Prince Sultan Street, Al Rawdah",
+    lat: 21.5810,
+    lng: 39.1580,
     phone: "+966511000002",
     ownerEmail: "owner.fursan@salonhub.sa",
     ownerName: "Faisal Al-Harbi",
@@ -136,6 +143,8 @@ const salons: SalonSeed[] = [
     genderFocus: "UNISEX",
     city: "Dammam",
     address: "Al Khobar Corniche Road",
+    lat: 26.2854,
+    lng: 50.2083,
     phone: "+966511000003",
     ownerEmail: "owner.glow@salonhub.sa",
     ownerName: "Sara Al-Qahtani",
@@ -220,7 +229,10 @@ async function main() {
 
     const salon = await prisma.salon.upsert({
       where: { slug: seed.slug },
-      update: {},
+      // Coordinates are backfilled on re-seed. They arrived after these salons
+      // did, so an existing database would otherwise keep three salons that can
+      // never appear in a "near me" search. Everything else is still left alone.
+      update: { lat: seed.lat, lng: seed.lng },
       create: {
         ownerId: owner.id,
         slug: seed.slug,
@@ -234,6 +246,8 @@ async function main() {
         status: "APPROVED",
         address: seed.address,
         city: seed.city,
+        lat: seed.lat,
+        lng: seed.lng,
         phone: seed.phone,
       },
     });

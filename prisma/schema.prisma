@@ -137,6 +137,11 @@ model Salon {
 
   @@index([ownerId])
   @@index([status, city])
+  // Proximity search is a bounding-box range scan over lat then lng, filtered to
+  // approved salons first. There is no PostGIS here; this composite index is
+  // what keeps "near me" from reading the whole table. Rows with a null lat are
+  // excluded by the query, and Postgres keeps nulls out of the range scan.
+  @@index([status, lat, lng])
 }
 
 model SalonPhoto {

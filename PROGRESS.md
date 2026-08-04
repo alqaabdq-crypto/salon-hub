@@ -14,7 +14,67 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-04, latest):** *"please review the progress report and produce url
+**Asked (2026-08-04, latest):** *"i need the owner of the salon to be able to select
+the location through maps"* — scoped in follow-up to: **owner picks the location,
+and customers see what is near them and the ratings of the salons near them.**
+Provider chosen by the owner: **Leaflet + OpenStreetMap** (no API key, no billing).
+
+**Answered:** Built all three parts. `Salon.lat`/`lng` had existed since M1 but
+**nothing ever wrote them** — `saveSalon` dropped the fields — so the columns were
+dead. They are now the backbone of the feature.
+
+- **Owner picker** (`src/components/map/location-picker.tsx`) on `/owner/profile`:
+  drag the pin, click the map, search an address (Nominatim, biased to `sa`), or
+  use the browser's location. **Degrades to two plain number inputs with JS off** —
+  those inputs are the source of truth and the only thing posted, so the map is a
+  nicer way to fill them, not a second code path. `saveSalon` now validates and
+  stores the pair; blank clears it, and **half a coordinate stores neither**.
+- **Customer "near me"** on `/salons`: a `NearMeButton` writes `?lat=&lng=` into
+  the URL and the **server** does the rest, so results stay shareable and
+  back-button-correct. Proximity is a two-step filter — a bounding box in SQL
+  (new `@@index([status, lat, lng])`; there is no PostGIS) then exact Haversine
+  in JS to trim the box's corners and sort nearest-first. A radius selector
+  (2/5/10/25/50 km) rides along as hidden fields so other filters do not drop it.
+- **Ratings** now appear on browse cards and in map popups. They were **0.0 on
+  every salon**: `avgRating`/`reviewCount` are denormalised and nothing maintained
+  them. Added `recomputeSalonRating` (`src/server/salon/rating.ts`), which
+  recomputes the aggregate from `Review` rows and accepts a transaction client.
+- **Dark basemap.** OSM ships light tiles; against this near-black theme that was
+  a glaring white rectangle. Filtered to a dark map via `.leaflet-tile-pane` —
+  **not** `.leaflet-tile`, because Leaflet's own CSS declares
+  `.leaflet-tile { filter: inherit }` and loads later, which is exactly the hook
+  that declaration exists to provide.
+
+**Verified — and this time actually looked at.** The long-standing
+Playwright/WebKit mismatch was fixed by installing **Chromium**, so the "never
+screenshot-verified" caveat carried since 2026-07-27 is **closed**. 12 automated
+browser checks pass against the live tunnel: tiles paint, the pin renders with its
+rating badge (`★ 4.8`), the popup reads *"Rose Beauty Lounge ★ 4.8 · 4 reviews ·
+2.7 km away"*, the picker prefills the saved pin, clicking the map rewrites the
+latitude, and the Arabic page renders RTL. Server-side round-trips confirmed
+against Postgres: a moved pin persists, a cleared pin nulls both columns and drops
+the salon out of "near me", and a 2 km radius correctly excludes a salon 2.7 km
+away. 68 unit tests pass (**25 new**, over Haversine, bounding boxes and coordinate
+parsing), typecheck and lint clean.
+
+**Two things the screenshots caught that the assertions did not:** the "Show all
+salons" button was stretching to full page width (fixed), and **I corrupted the
+Rose salon's Arabic copy** — my verification `curl` posts ran through Git Bash,
+which mangles UTF-8 arguments to `?`, exactly as this file's environment notes
+warn. Repaired by piping UTF-8 SQL to `psql` from a file. Worth remembering: that
+trap bites writes, not just reads.
+
+⚠️ **The ratings are seeded, not earned.** `scripts/seed-sample-reviews.ts` (demo
+only, not in git's product path, idempotent) creates completed bookings with
+reviews for all three salons — because `Review.bookingId` is required and unique,
+a review cannot exist without a real visit, which is why this cannot live in
+`prisma/seed.ts`. **Nothing in the app creates a review yet**, so
+`recomputeSalonRating` currently has no production caller. Customer review-writing
+is still the open gap it was before.
+
+---
+
+**Asked (2026-08-04):** *"please review the progress report and produce url
 for the project so we can amend and improve."*
 
 **Answered:** Reviewed (led with the section below, as instructed) and **brought a
@@ -640,8 +700,11 @@ The milestone table says shipped; this says what "shipped" does not mean.
   from a real dashboard. **Get test keys (`sk_test_…`) and run one booking
   through before believing the invoice call works.**
 - **Customers still cannot write *salon* reviews.** The per-salon `Review` renders
-  on salon pages and the schema has held it since M1, but nothing creates one — and
-  `avgRating` / `reviewCount` are denormalised with nothing maintaining them.
+  on salon pages and the schema has held it since M1, but nothing creates one.
+  `avgRating` / `reviewCount` finally have a maintainer as of 2026-08-04 —
+  `recomputeSalonRating` in `src/server/salon/rating.ts` — but **nothing in the app
+  calls it**, because nothing writes a review; only the demo seeder does. The
+  ratings now visible on browse cards and map pins are seeded, not earned.
   (Note: a separate **website-testimonials** feature — `SiteReview`, on the landing
   page — *was* added 2026-07-27. That is platform feedback, not salon reviews; this
   gap is still open.)
@@ -712,8 +775,14 @@ The milestone table says shipped; this says what "shipped" does not mean.
   Consistent enough at two decimal places; worth unifying before M5.
 - `Staff` has no gender field despite `GenderFocus` on salons — likely required
   for women's salons in this market.
-- `lat` / `lng` unindexed and `city` is free text — "salons near me" will not scale.
-  No PostGIS.
+- ~~`lat` / `lng` unindexed~~ — indexed 2026-08-04 (`@@index([status, lat, lng])`)
+  and "near me" ships, using a bounding box plus Haversine in JS. Still **no
+  PostGIS**: that composite index cannot serve a true radius, and the JS sort is
+  capped at 200 rows. Fine at this size; revisit before the catalog is national.
+- **`city` is still free text and monolingual.** The Arabic browse page shows
+  "Riyadh" in Latin script next to fully Arabic salon copy, because `Salon.city`
+  has no `cityAr`. It is also what the city filter groups on, so a typo makes a
+  new city. Worth a `City` table, or at minimum a bilingual pair.
 - No notifications model (SMS / WhatsApp reminders are near-mandatory here).
 - No OAuth adapter tables, despite `User.image` / `emailVerified` hinting that way.
 - `Review.rating` has no 1–5 constraint; `avgRating` / `reviewCount` are
@@ -765,6 +834,19 @@ The milestone table says shipped; this says what "shipped" does not mean.
 - **next-intl serialises the whole message catalog into the HTML.** Grepping a
   page for an English string can match the untranslated catalog rather than
   anything rendered — anchor assertions on markup (`>Cancelled<`) instead.
+- **Git Bash mangles UTF-8 in *writes*, not just reads.** A verification `curl -F
+  "nameAr=صالون…"` on 2026-08-04 wrote literal `???????` into the database. The
+  same trap already documented for search queries applies to any Arabic sent as a
+  shell argument. Send Arabic from a **file** (`psql -f`, a `.mjs` script, curl
+  `--data-binary @file`), never inline.
+- **Screenshots are worth taking, and `chromium` works.** Playwright's WebKit
+  build mismatched its package for two sessions, which is why several features
+  shipped "structurally verified" only. `npx playwright install chromium` fixed
+  it. Two real defects — a full-width button and the corrupted Arabic above —
+  were invisible to HTTP assertions and obvious in a screenshot.
+- **Filtering Leaflet tiles** must target `.leaflet-tile-pane`, not
+  `.leaflet-tile`: Leaflet's stylesheet sets `.leaflet-tile { filter: inherit }`
+  and loads after the app's CSS, silently overriding a rule on the tile itself.
 
 ## Picking up
 

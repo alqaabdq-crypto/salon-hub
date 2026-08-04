@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { auth } from "@/server/auth/config";
 import { getOwnedSalon } from "@/server/salon/owner";
 import { saveSalon } from "@/server/salon/actions";
+import { LocationPicker } from "@/components/map/location-picker";
 import type { GenderFocus } from "@/generated/prisma/enums";
 
 type Props = {
@@ -101,6 +102,11 @@ export default async function OwnerProfilePage({ params, searchParams }: Props) 
           <span className="text-sm font-medium">{t("address")}</span>
           <input name="address" required defaultValue={salon?.address ?? ""} className={field} />
         </label>
+
+        {/* The written address is what a customer reads; the pin is what puts the
+            salon in "near me" results. Both are kept — a geocoder cannot be
+            trusted to turn a Saudi street address into the right shopfront. */}
+        <LocationPicker lat={salon?.lat ?? null} lng={salon?.lng ?? null} />
 
         <div>
           <button

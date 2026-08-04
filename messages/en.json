@@ -218,7 +218,23 @@
     "results": "{count, plural, =0 {No salons} one {# salon} other {# salons}}",
     "empty": "No salons match your filters.",
     "from": "From {price}",
-    "noPrices": "No services listed"
+    "noPrices": "No services listed",
+    "nearMe": "Near me",
+    "clearNearMe": "Show all salons",
+    "locating": "Finding you…",
+    "locationDenied": "Location permission was denied. Filter by city instead.",
+    "locationUnavailable": "Your location isn't available. Filter by city instead.",
+    "radius": "Distance",
+    "radiusOption": "Within {km} km",
+    "resultsNearby": "{count, plural, =0 {No salons} one {# salon} other {# salons}} within {km} km",
+    "distanceMetres": "{value} m away",
+    "distanceKm": "{value} km away",
+    "reviewCount": "({count, plural, one {# review} other {# reviews}})",
+    "notRated": "Not rated yet",
+    "ratingSummary": "★ {rating} · {count, plural, one {# review} other {# reviews}}",
+    "youAreHere": "You are here",
+    "mapLabel": "Map of salons",
+    "unmappedCount": "{count, plural, one {# salon has no map location yet} other {# salons have no map location yet}}"
   },
   "GenderFocus": {
     "MEN": "Men",
@@ -286,5 +302,20 @@
     "successMsg": "Thanks! Your review has been posted.",
     "errorMsg": "Something wasn’t right — please check your name, rating and review, then try again.",
     "empty": "No reviews yet — be the first to share your experience."
+  },
+  "Location": {
+    "label": "Location on the map",
+    "help": "Search for the address, use your current location, or drag the pin. Customers use this to find salons near them.",
+    "searchPlaceholder": "Search for an address or district",
+    "search": "Search",
+    "searching": "Searching…",
+    "useMyLocation": "Use my location",
+    "locating": "Locating…",
+    "noResults": "No matching place found. Try a nearby landmark, or drag the pin.",
+    "lookupFailed": "Could not look that up. Drag the pin instead.",
+    "lat": "Latitude",
+    "lng": "Longitude",
+    "outsideSaudi": "That point is outside Saudi Arabia. Check the latitude and longitude are not swapped.",
+    "clear": "Clear location"
   }
 }

@@ -54,6 +54,23 @@ async function guard(
 
 // ---------------------------------------------------------------- salon ----
 
+/**
+ * An optional map coordinate. Blank is a real answer — the column is nullable
+ * and the picker offers a "clear" — so an empty field becomes null rather than
+ * a validation error. Out-of-range values are rejected outright.
+ */
+const coordinate = (limit: number) =>
+  z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((value) =>
+      value === undefined || String(value).trim() === "" ? null : Number(value),
+    )
+    .refine(
+      (value) => value === null || (Number.isFinite(value) && Math.abs(value) <= limit),
+      "Coordinate out of range",
+    );
+
 const salonSchema = z.object({
   ...bilingual,
   descriptionEn: z.string().trim().min(1).max(2000),
@@ -62,6 +79,8 @@ const salonSchema = z.object({
   city: z.string().trim().min(1).max(80),
   address: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(6).max(20),
+  lat: coordinate(90),
+  lng: coordinate(180),
 });
 
 export async function saveSalon(formData: FormData): Promise<void> {
@@ -72,7 +91,11 @@ export async function saveSalon(formData: FormData): Promise<void> {
     return redirect({ href: ownerPath("/owner/profile", "invalid"), locale });
   }
 
-  const fields = parsed.data;
+  // Half a coordinate is not a location. If either value is missing the pair is
+  // dropped, so a partially-filled form cannot store a point on the equator.
+  const { lat, lng, ...rest } = parsed.data;
+  const located = lat !== null && lng !== null;
+  const fields = { ...rest, lat: located ? lat : null, lng: located ? lng : null };
 
   const session = await auth();
   if (!session?.user || session.user.role !== "SALON_OWNER") {

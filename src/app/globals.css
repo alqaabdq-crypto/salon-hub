@@ -188,3 +188,45 @@ body {
     transform: translate(-50%, 0) !important;
   }
 }
+
+/* ---------------------------------------------------------------- maps ---- */
+
+/* OpenStreetMap ships one light tile set. Against this near-black theme an
+   untreated map is a glaring white rectangle, so the tiles are inverted into a
+   dark basemap: invert flips light to dark, and the hue rotation puts the
+   colours back the right way round (without it, green parks come out magenta).
+   Set on the tile pane, not on `.leaflet-tile`: Leaflet's own stylesheet
+   declares `.leaflet-tile { filter: inherit }` and loads after this one, so a
+   rule on the tile itself is overwritten. Inheriting from the pane is the hook
+   that declaration exists to provide. Markers, popups and controls sit in other
+   panes and keep their own colours. */
+.leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.75);
+}
+
+/* The container shows through while tiles load; matching it to the page keeps
+   that moment from flashing Leaflet's default grey. */
+.leaflet-container {
+  background: var(--surface);
+  font: inherit;
+}
+
+/* Leaflet's own controls default to white-on-white. */
+.leaflet-control-attribution {
+  background: color-mix(in oklab, var(--surface) 88%, transparent) !important;
+  color: var(--muted) !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-brand) !important;
+}
+
+.leaflet-bar a {
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+  border-bottom-color: var(--hairline) !important;
+}
+
+.leaflet-bar a:hover {
+  background: color-mix(in oklab, var(--color-brand) 18%, var(--surface)) !important;
+}
