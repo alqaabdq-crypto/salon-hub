@@ -1,6 +1,6 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-08-04
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
@@ -14,7 +14,31 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-07-27, latest):** *"in the overview I need a chart representing the
+**Asked (2026-08-04, latest):** *"please review the progress report and produce url
+for the project so we can amend and improve."*
+
+**Answered:** Reviewed (led with the section below, as instructed) and **brought a
+browsable URL back up**: started Docker Postgres, re-synced source to
+`C:\temp\salon-hub-live`, clean production build, `next start -p 3111`, Cloudflare
+quick tunnel → **`https://treasure-satin-jones-usd.trycloudflare.com`**. Smoke-tested
+`/en`, `/ar`, `/en/salons`, a salon detail page and `/en/auth/login` (all 200), plus
+an **authed** check as `owner.rose` confirming the revenue chart still renders after
+the rebuild. ⚠️ Same ephemeral tunnel as before — hostname rotates on relaunch, dies
+when the laptop sleeps. The **durable** URL (Vercel + Neon) is still owed and still
+blocked on `vercel login` + a Neon connection string.
+
+**Found while verifying — the revenue chart's window has rolled forward.** The demo
+seeder spread bookings Feb–Jul 2026; the chart shows a trailing 6 months, so as of
+2026-08-04 it reads *Mar 77 / Apr 357 / May 221 / Jun 128 / Jul 77 / **Aug 0*** —
+February has fallen off the left and August renders as an empty slot (5 bars, not 6).
+Not a bug in the chart, which is behaving exactly as specified; it is the **demo data
+going stale**. Re-run `scripts/seed-sample-revenue.ts` with months rebased on *today*
+(or make it seed relative to `now()`) before showing the chart to anyone, or the
+newest month always reads zero.
+
+---
+
+**Asked (2026-07-27):** *"in the overview I need a chart representing the
 revenue tab."*
 
 **Answered:** Added a **monthly net-revenue bar chart** to the owner **Overview**
@@ -104,8 +128,8 @@ Now live: **https://github.com/alqaabdq-crypto/salon-hub** (default branch `main
   Unused `card*` keys in the `Home` namespace are harmless leftovers.
 
 **Live tunnel (ephemeral):** the Cloudflare quick-tunnel hostname **changes on
-every relaunch** and dies when the laptop sleeps (last live this session:
-`begun-motorcycle-del-hazardous.trycloudflare.com`). Hard-refresh (Ctrl+Shift+R)
+every relaunch** and dies when the laptop sleeps (last live 2026-08-04:
+`treasure-satin-jones-usd.trycloudflare.com`). Hard-refresh (Ctrl+Shift+R)
 after any redeploy to clear old CSS; it exposes the machine + local DB while up.
 
 **Still owed:** the *durable* URL (Vercel + Neon, ~15 min, blocked on `vercel login`
