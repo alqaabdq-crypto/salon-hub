@@ -284,6 +284,141 @@ create extensions — on a managed Postgres that is not always the app's own use
 
 ---
 
+## Completed 2026-08-04 — maps, proximity search, real ratings
+
+Committed to `master` and pushed to the public `origin/main`; HEAD `05ed9f1`.
+Provider decision taken by the project owner: **Leaflet + OpenStreetMap**, chosen
+over Google Maps because it needs no API key and no billing account. Google was
+rejected on that basis, not on data quality — OSM's Arabic POI labels are patchier
+and its rural detail is thinner, which is the trade accepted here.
+
+### Where the JavaScript now is
+
+Earlier entries in this file say **"the hero is the only JS surface."** That is no
+longer true, and the correction matters when judging what still works without
+JavaScript. There are now three client components beyond auth: the hero, the owner
+**location picker**, and the customer **map + Near-me button**.
+
+What has *not* changed is the rule behind that claim. **Every one of these is an
+enhancement over something that already works server-side**: the picker sits on top
+of number inputs that post on their own, and the map only draws salons the server
+already chose and listed. The **booking flow remains entirely no-JS**, and browse,
+filters and salon detail still render and function with scripting disabled — a
+visitor without JavaScript loses the map, not the marketplace.
+
+### The dead columns
+
+`Salon.lat` / `Salon.lng` were added in the M1 schema and **never written**:
+`saveSalon` simply did not carry the fields, so every salon in every database had
+a null location. Nothing surfaced this because nothing read them either. All three
+pieces below rest on those columns, so filling them was the first job.
+
+### Owner picks a location
+
+`src/components/map/location-picker.tsx`, on `/owner/profile`. Drag the pin, click
+the map, search an address, or use the browser's location.
+
+- **It degrades.** Two plain number inputs sit under the map, always rendered, and
+  they are both the source of truth and the only thing posted. With JavaScript off
+  the form still saves a location; the map is a nicer way to fill those inputs, not
+  a separate path. The inputs hold **raw text**, not parsed numbers — a controlled
+  numeric input backed by a parsed value cannot be cleared or half-typed, because
+  `""` and `-` both fail to parse and the keystroke is rejected.
+- **Address search** is Nominatim, `countrycodes=sa`, fired on submit only — never
+  on keystroke, which keeps it inside Nominatim's one-request-per-second policy
+  without any debouncing. **The OpenStreetMap attribution in the corner is a
+  licence condition, not decoration; do not remove it.**
+- **Validation.** Blank clears the location. **Half a coordinate stores neither** —
+  a latitude with no longitude would otherwise pin the salon to the prime meridian.
+  A point outside the Saudi bounding box warns but still saves, because the common
+  mistake is transposing lat and lng, and a warning is more useful than a refusal.
+
+### Customers find what is near them
+
+The `NearMeButton` does one thing: write `?lat=&lng=` into the URL. **The search
+itself is server-rendered**, so a proximity result is shareable, bookmarkable and
+back-button-correct, and anyone arriving with those parameters already set gets the
+same page. Geolocation is how the parameters get filled, not a second code path.
+
+Proximity is two steps, because there is **no PostGIS** here:
+
+1. A **bounding box** in SQL — an index range scan over the new
+   `@@index([status, lat, lng])`. Cheap and deliberately generous: a box drawn
+   round a circle includes area the circle does not.
+2. **Exact Haversine in JS**, which discards the box's corner over-selection and
+   sorts nearest-first. Capped at 200 rows so a hand-edited URL cannot turn this
+   into an unbounded read.
+
+Salons with no pin are excluded outright — a salon with no location cannot be
+distance-ranked, and the browse page says how many were left off the map.
+
+### Ratings that are not zero
+
+`avgRating` and `reviewCount` are denormalised onto `Salon` so browse can sort by
+rating without a join. Denormalised means something must maintain them, and until
+now **nothing did** — every salon read 0.0 no matter how many reviews it had.
+`recomputeSalonRating` (`src/server/salon/rating.ts`) recomputes both from the
+`Review` rows and takes an optional transaction client so it can run inside the
+same transaction as a review write. It recomputes rather than nudging a running
+average, which would drift the moment a review is edited or deleted.
+
+Ratings now render on browse cards and inside map popups. **See the caveat under
+"What is genuinely not done": nothing in the app writes a review, so this function
+has no production caller yet and the visible ratings are seeded.**
+
+### A dark basemap
+
+OSM ships one light tile set, which against `--background #0a0b07` was a glaring
+white rectangle. Tiles are inverted and hue-rotated into a dark map. The filter is
+set on **`.leaflet-tile-pane`**, not `.leaflet-tile` — Leaflet's own stylesheet
+declares `.leaflet-tile { filter: inherit }` and loads after the app's CSS, so a
+rule on the tile itself is silently overwritten. Inheriting from the pane is the
+hook that declaration exists to provide. Leaflet's controls and attribution are
+restyled to the project's tokens; markers and popups sit in other panes and keep
+their own colours.
+
+### Demo reviews — local only, not product data
+
+`scripts/seed-sample-reviews.ts`: 9 reviews across the three salons (Rose 4.75,
+Al Fursan 4.33, Glow 4.00), idempotent, marker-tagged, cleared on re-run. It has
+to create a completed booking per review because **`Review.bookingId` is required
+and unique** — a review cannot exist without a real visit, which is exactly why
+this cannot live in `prisma/seed.ts`, whose whole point is to create no bookings.
+It recomputes the aggregates through `recomputeSalonRating` rather than writing
+them by hand, so a bug in that function shows up here immediately.
+
+`prisma/seed.ts` now carries coordinates for the three salons and **backfills them
+on re-seed** (its `update` clause, previously empty), so an existing database does
+not keep three salons that can never appear in a proximity search.
+
+### Verified — including, at last, with eyes
+
+The Playwright/WebKit version mismatch that left the last two sessions'
+UI work "structurally verified only" was fixed by installing **Chromium**. That
+caveat is **closed**, and it paid for itself immediately (see below).
+
+- **68 unit tests** (25 new) over Haversine against known Riyadh–Jeddah and
+  Riyadh–Dammam distances, bounding-box containment on the compass rose, the
+  longitude-span widening with latitude, pole clamping, and coordinate parsing
+  including transposed pairs and out-of-range values.
+- **12 browser checks** against the live tunnel: tiles paint, the pin carries its
+  rating badge (`★ 4.8`), the popup reads *"Rose Beauty Lounge ★ 4.8 · 4 reviews ·
+  2.7 km away"*, the picker prefills the saved pin, clicking the map rewrites the
+  latitude input, and the Arabic page renders RTL.
+- **Server round-trips against Postgres**: a moved pin persists through the Server
+  Action; a cleared pin nulls both columns and the salon drops out of proximity
+  results; a half-coordinate post stores neither; a 2 km radius correctly excludes
+  a salon 2.7 km away that a 10 km radius includes.
+
+**Two defects the screenshots caught that the HTTP assertions did not:** the "Show
+all salons" button was stretching to full page width, and the Rose salon's Arabic
+copy had been **corrupted to `???????`** by the verification `curl` posts — Git
+Bash mangles UTF-8 in command arguments, a trap this file already documented for
+*reads* and which turns out to bite *writes* far harder. Both fixed; the note is
+now in "Environment notes".
+
+---
+
 ## Completed 2026-07-27 — publish, redesign, reviews, revenue
 
 A UI/product session layered on the finished M1–M5 core. Everything below is
@@ -719,6 +854,11 @@ The milestone table says shipped; this says what "shipped" does not mean.
   outside the web UI. SMS/WhatsApp is near-mandatory in this market.
 - **No photo uploads.** `coverImageUrl` and `SalonPhoto` are modelled; no page
   renders them and no form sets them.
+- **Only three salons have coordinates, and they are seeded ones.** "Near me"
+  works, but it can only find what has been pinned. Any salon created through the
+  owner form since 2026-08-04 has a pin only if its owner set one — the field is
+  optional by design, and an unpinned salon is invisible to proximity search
+  while remaining fully visible everywhere else.
 
 ## Open issues
 
@@ -733,7 +873,20 @@ The milestone table says shipped; this says what "shipped" does not mean.
 
 - Logged-in users can still browse to `/auth/login` and `/auth/register`.
 - **Browse has no pagination.** Fine for three seeded salons, wrong at scale —
-  `findMany` is unbounded. Add cursor pagination before real listings land.
+  `findMany` is unbounded. Add cursor pagination before real listings land. The
+  proximity path is capped at 200 rows; the unfiltered path is not capped at all.
+- **Nominatim is a third-party dependency with a usage policy**, not an SLA. Its
+  address search is capped at roughly one request per second, may rate-limit or
+  block a noisy origin, and **requires the OpenStreetMap attribution** rendered in
+  the map corner. Search is fired on submit rather than on keystroke to stay
+  inside that budget, but a busy production site should self-host a geocoder or
+  buy one. Losing it degrades gracefully: the pin can still be dragged.
+- **Map tiles come from `tile.openstreetmap.org`**, whose tile-usage policy
+  forbids heavy automated traffic. Same conclusion — fine now, needs a paid or
+  self-hosted tile source before real traffic.
+- **The proximity sort is JS-side and unindexable.** The bounding box is indexed;
+  the Haversine ordering that follows is not, and cannot be without PostGIS.
+  Correct and fast at this catalogue size, wrong shape for a national listing.
 - **Text search is `contains`**, so it cannot match across `nameEn`/`nameAr` word
   order or handle Arabic diacritics and alef variants (`أ` vs `ا`). Postgres full-text
   search with an Arabic configuration is the real answer.
@@ -850,25 +1003,37 @@ The milestone table says shipped; this says what "shipped" does not mean.
 
 ## Picking up
 
-**State at 2026-07-27 (end of session).** All work is on **`master`** at `2ccee68`,
+**State at 2026-08-04 (end of session).** All work is on **`master`** at `05ed9f1`,
 mirrored to the **public** `origin/main` (`github.com/alqaabdq-crypto/salon-hub`);
 `master` tracks it, so publishing is a plain `git push`. Working tree clean. The
-M1–M5 core is functionally complete; on top of it this session added a RedSun-style
-**dark theme** (bright-olive, interactive landing), a **website-testimonials**
-feature, an owner **Revenue tab**, and a **monthly revenue chart** on the overview
-(all detailed under "Completed 2026-07-27"). Docker Postgres is up and migrated;
-beyond the base seed (3 salons) it now also holds **demo revenue data** (6 paid + 1
-refunded booking for the Rose salon, via `scripts/seed-sample-revenue.ts`), one
-test `SiteReview`, and a couple of leftover test accounts plus the owner's own
-customer account — so it is **no longer the pristine seed**. A Cloudflare quick
-tunnel serves the production build from `C:\temp\salon-hub-live`; **its hostname
-rotates on every relaunch and it dies when the laptop sleeps**, so treat any pinned
-URL as ephemeral.
+M1–M5 core is functionally complete; on top of it sit the 2026-07-27 UI session
+(dark theme, website testimonials, owner Revenue tab and revenue chart) and this
+session's **maps work** — owner location picking, customer proximity search, and
+salon ratings that are finally non-zero (see "Completed 2026-08-04").
+
+Docker Postgres is up and migrated. Beyond the base seed (3 salons, **now with
+coordinates**) it holds **demo revenue data** (`scripts/seed-sample-revenue.ts`),
+**demo reviews** (`scripts/seed-sample-reviews.ts`, 9 reviews across the three
+salons), one test `SiteReview`, three `reviewer.*@salonhub.sa` accounts, and a
+couple of leftover test accounts — so it is **well past the pristine seed**. Both
+demo seeders are idempotent, marker-tagged and safe to re-run or delete.
+
+A Cloudflare quick tunnel serves the production build from `C:\temp\salon-hub-live`
+(last live: `treasure-satin-jones-usd.trycloudflare.com`); **its hostname rotates
+on every relaunch and it dies when the laptop sleeps**, so treat any pinned URL as
+ephemeral. Restarting it is: sync the tree out of OneDrive, `npm run build`,
+`npx next start -p 3111`, then point `cloudflared` at 3111 — full commands under
+"Deployment".
+
+**Screenshot verification now works.** `npx playwright install chromium` resolved
+the WebKit/package mismatch that blocked it for two sessions. Use it: two real
+defects in this session were invisible to HTTP assertions.
 
 The whole product works end to end locally: a salon owner can sign up, get
-approved, list services and staff, and take a booking a customer made on a phone,
-confirm it, and be paid for it. It is deploy-ready and now published to GitHub, but
-has never been deployed to a host.
+approved, list services and staff, **pin themselves on a map**, and take a booking
+a customer made on a phone — possibly having found them through "near me" — then
+confirm it and be paid for it. It is deploy-ready and published to GitHub, but has
+never been deployed to a host.
 
 **Two things have never been exercised for real, and both need an account the
 project owner holds:**
@@ -880,24 +1045,31 @@ project owner holds:**
 - **A real host.** See "Deployment" — blocked on `vercel login` and a Neon
   connection string, nothing else.
 
-**Two cheap design follow-ups left open:** the RedSun **sun-glow was never
-screenshot-verified** (Playwright/WebKit version mismatch), so eyeball it and tune
-if needed; and the now-public **README still lists the demo passwords**
-(`admin1234` / `owner1234`) — scrub if that matters.
+**Still open, cheap:** the now-public **README lists the demo passwords**
+(`admin1234` / `owner1234`) — scrub if that matters. The RedSun sun-glow can now
+actually be eyeballed, since Chromium works; it has not been tuned.
 
 Suggested order:
 
-1. **Deploy to Vercel + Neon.** Now the top item: a tunnel to a laptop is not a
-   deployment, and the `btree_gist` extension is the likely first surprise on
-   managed Postgres. The prep is done, so this is mostly waiting on two logins.
-2. **One real Moyasar test payment.** Everything about payments is speculation
-   until that round-trips — and it is easier to point a gateway webhook at a
-   stable public URL than at a tunnel that changes hostname every run, which is
-   why this now comes second rather than first.
-3. **Reviews a customer can write** — the only visible feature from the original
-   plan with no implementation behind it, and `avgRating` needs maintaining when
-   it lands.
-4. Split the auth config so the proxy stops bundling Prisma.
-5. Pagination on browse, before the catalog grows past a screenful.
-6. Salon-level opening hours, which both the detail page and the booking engine
-   are still approximating from staff shifts.
+1. **Reviews a customer can write.** Promoted to the top. It is now the only place
+   the UI *promises* something the app cannot do: browse cards and map pins show
+   star ratings, and every one of them is seeded. `recomputeSalonRating` already
+   exists and is tested by the demo seeder, so this is the write path, the
+   eligibility rule (a `COMPLETED` booking the reviewer owns, one review per
+   booking — the schema already enforces the second), and calling the recompute in
+   the same transaction.
+2. **Deploy to Vercel + Neon.** A tunnel to a laptop is not a deployment. The prep
+   is done; blocked on `vercel login` and a Neon connection string. Watch for
+   `btree_gist` in the M3 migration — the likely first surprise on managed
+   Postgres — and note the new `@@index([status, lat, lng])` needs no extension.
+3. **One real Moyasar test payment.** Everything about payments is speculation
+   until that round-trips, and it is far easier to point a gateway webhook at a
+   stable public URL than at a tunnel that changes hostname every run — which is
+   why this follows the deploy rather than preceding it.
+4. **Salon-level opening hours**, which both the detail page and the booking engine
+   still approximate from staff shifts.
+5. Split the auth config so the proxy stops bundling Prisma.
+6. Pagination on browse, before the catalog grows past a screenful. The proximity
+   path is already capped at 200; the unfiltered path is still unbounded.
+7. **Bilingual `city`.** Now visible rather than theoretical: the Arabic browse
+   page prints "Riyadh" in Latin script beside fully Arabic salon copy.
