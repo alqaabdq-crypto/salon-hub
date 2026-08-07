@@ -28,7 +28,7 @@ export default async function AdminPage({ params, searchParams }: Props) {
   const tSupport = await getTranslations("Support");
   const format = await getFormatter();
 
-  const [salons, customers, owners, bookings, openTickets] = await Promise.all([
+  const [salons, customers, owners, bookings, openTickets, feeTotals] = await Promise.all([
     prisma.salon.findMany({
       include: {
         owner: { select: { name: true, email: true } },
@@ -41,7 +41,15 @@ export default async function AdminPage({ params, searchParams }: Props) {
     prisma.user.count({ where: { role: "SALON_OWNER" } }),
     prisma.booking.count(),
     prisma.supportTicket.count({ where: { status: "OPEN" } }),
+    // Platform commission to date. Summed by the database rather than pulled
+    // into memory — the dashboard only needs the one number.
+    prisma.payment.aggregate({
+      where: { status: "SUCCEEDED" },
+      _sum: { platformFee: true },
+    }),
   ]);
+
+  const platformFees = feeTotals._sum.platformFee ?? 0;
 
   const pending = salons.filter((salon) => salon.status === "PENDING_VERIFICATION");
   const rest = salons.filter((salon) => salon.status !== "PENDING_VERIFICATION");
@@ -120,17 +128,33 @@ export default async function AdminPage({ params, searchParams }: Props) {
         </p>
       )}
 
-      {/* The support queue is the other thing an admin is here to work, so it
-          gets a link rather than being reachable only by typing the URL. */}
-      <Link
-        href="/admin/support"
-        className="mt-8 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 px-5 py-4 transition hover:border-brand/60"
-      >
-        <span className="font-medium">{tSupport("adminTitle")}</span>
-        <span className="rounded-full bg-brand px-3 py-0.5 text-sm font-bold text-[#10130a]">
-          {format.number(openTickets)}
-        </span>
-      </Link>
+      {/* The other two things an admin comes here to do, rather than leaving them
+          reachable only by typing the URL. */}
+      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        <Link
+          href="/admin/support"
+          className="flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 px-5 py-4 transition hover:border-brand/60"
+        >
+          <span className="font-medium">{tSupport("adminTitle")}</span>
+          <span className="rounded-full bg-brand px-3 py-0.5 text-sm font-bold text-[#10130a]">
+            {format.number(openTickets)}
+          </span>
+        </Link>
+
+        <Link
+          href="/admin/revenue"
+          className="flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 px-5 py-4 transition hover:border-brand/60"
+        >
+          <span className="font-medium">{t("revTitle")}</span>
+          <span className="text-sm font-bold text-brand">
+            {format.number(Number(platformFees), {
+              style: "currency",
+              currency: "SAR",
+              maximumFractionDigits: 0,
+            })}
+          </span>
+        </Link>
+      </div>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-4">
         {[

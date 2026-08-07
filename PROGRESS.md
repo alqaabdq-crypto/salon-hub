@@ -1,6 +1,6 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-08
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
@@ -14,7 +14,50 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-07, latest):** *"please update the progress report also github."*
+**Asked (2026-08-08, latest):** *"i need the admin dashboard to have the revenue and
+how much each salon earn."*
+
+**Answered:** New **`/admin/revenue`**, linked from the admin dashboard beside the
+support queue, with the platform's own commission on the dashboard tile itself.
+
+- **Four tiles:** platform earnings (Σ `platformFee` — the marketplace's actual
+  revenue), gross processed, paid to salons, and settled payment count.
+- **Earnings by salon:** a table of paid bookings, gross, commission, **what the
+  salon earns**, and the **realised** commission rate — `fee ÷ gross`, not the
+  configured rate, so a salon whose rate changed mid-period reads between the two.
+  Ordered by salon earnings, with a totals row that reconciles.
+- **Monthly platform earnings** reusing the existing `RevenueChart` rather than
+  building a second chart.
+- Money summed with `Prisma.Decimal` throughout. The dashboard tile uses a SQL
+  `aggregate` since it needs one number; the table aggregates in JS because the
+  grouping key (`salonId`) lives on the related `Booking`, which Prisma cannot
+  `groupBy` directly — hence the explicit `take: 5000` rather than an unbounded read.
+
+**The demo seeder was rewritten**, which fixes a defect recorded on 2026-08-04:
+it used fixed `daysAgo` offsets, so **the current month was always empty** and the
+six-month chart grew a trailing zero bar as time passed. Months are now derived
+from today, and bookings never land in the future. It also seeds **all three
+salons** instead of one, at deliberately different volumes and commission rates
+(15% / 15% / **12%** negotiated override) — with a single rate the page cannot
+show whether it reports the realised rate or just repeats the default.
+
+The resulting data makes the point the page exists to make: **Al Fursan has the
+most paid bookings (19) and earns the least (SAR 1,100)**, because its services are
+cheap and its rate is lower.
+
+**Verified with 14 browser checks:** the dashboard link and its figure, one row per
+earning salon, ordering by earnings, rates genuinely differing per salon, a totals
+row, the chart including the current month, Arabic RTL with no missing messages,
+and **a salon owner being refused** at `/admin/revenue`. Totals reconcile against
+Postgres — 42 paid, SAR 973.50 commission, 14.4% blended. Typecheck, lint and 68
+tests clean.
+
+⚠️ **These are seeded payments, not real ones.** Moyasar has still never been
+called; every figure here comes from rows the demo seeder wrote.
+
+---
+
+**Asked (2026-08-07):** *"please update the progress report also github."*
 
 **Answered:** `PROGRESS.md` was **already current and already pushed** — `HEAD` and
 `origin/main` were both at `a4a95f8` before this request, carrying the support
@@ -432,6 +475,7 @@ payments, as originally planned.
 | M7 | Location & discovery — owner map picker, proximity search, ratings surfaced | ✅ Shipped (`05ed9f1`) — ratings shown are seeded |
 | M8 | Photos — staff avatars and salon covers: upload, resize/re-encode, serve from DB | ✅ Shipped — images shown are placeholders |
 | M9 | Customer service — support tickets, admin reply queue | ✅ Shipped — no notifications, so replies are pull-only |
+| M10 | Admin revenue — platform commission, per-salon earnings | ✅ Shipped — figures come from seeded payments |
 
 **All seven original milestones are covered.** The first plan's M6 (reviews) and M7
 (polish, SEO, deploy) were dissolved by the 2026-07-19 renumbering: review *display*
@@ -448,6 +492,9 @@ ran out, requested session by session rather than scoped up front:
   with a visible gap behind it: browse cards and map pins show star ratings, and
   every one of them comes from a demo seeder, because nothing in the app writes a
   review. Detail under "Completed 2026-08-04".
+- **M10** is admin revenue, 2026-08-08: platform commission totals and a per-salon
+  earnings table. Reuses the M6 revenue chart. Every figure rests on seeded
+  payments — Moyasar has still never been called.
 - **M9** is customer service, 2026-08-07: platform support tickets with an admin
   reply queue. Complete and verified end to end, but **pull-only** — with no
   notifications, a reply is discovered by revisiting `/help` and a ticket by

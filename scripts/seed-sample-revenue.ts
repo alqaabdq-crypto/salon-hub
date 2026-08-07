@@ -1,7 +1,13 @@
-// Demo-only: seeds a handful of completed, paid bookings for the Rose salon so
-// the owner Revenue tab shows real figures instead of the empty state. Idempotent
-// — every row it makes is tagged with a marker note and cleared on re-run. Safe to
-// delete; not part of the product. Run: npx tsx scripts/seed-sample-revenue.ts
+// Demo-only: seeds completed, paid bookings across every approved salon so the
+// owner Revenue tab and the admin Revenue page show real figures instead of
+// empty states. Idempotent — every row it makes is tagged with a marker note and
+// cleared on re-run. Safe to delete; not part of the product.
+//
+//   npx tsx scripts/seed-sample-revenue.ts
+//
+// Months are derived from today rather than hard-coded offsets. An earlier
+// version used fixed `daysAgo` values, which meant the current month was always
+// empty and the six-month chart grew a trailing zero bar as time passed.
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -10,126 +16,164 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 const MARKER = "SEED_SAMPLE_REVENUE";
-const COMMISSION = 0.15; // platform default
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Per salon: how many paid bookings land in each of the last six months, and the
+ * commission actually charged. The rates differ on purpose — `Salon.commissionRate`
+ * is a negotiated override, and a marketplace where every rate is identical hides
+ * whether the admin page reports the realised rate or just repeats the default.
+ */
+const PLAN: Record<string, { perMonth: number[]; commission: number }> = {
+  "rose-beauty-lounge": { perMonth: [2, 3, 2, 4, 3, 2], commission: 0.15 },
+  "al-fursan-barbers": { perMonth: [3, 2, 4, 3, 5, 3], commission: 0.12 },
+  "glow-studio": { perMonth: [1, 2, 1, 2, 2, 1], commission: 0.15 },
+};
+
 async function main() {
-  const salon = await prisma.salon.findFirst({ where: { nameEn: { contains: "Rose" } } });
-  if (!salon) throw new Error("Rose salon not found — seed the base data first.");
-
-  const services = await prisma.service.findMany({
-    where: { salonId: salon.id, isActive: true },
-    orderBy: { price: "asc" },
+  // Clear previous sample rows for a clean re-run.
+  const previous = await prisma.booking.findMany({
+    where: { notes: MARKER },
+    select: { id: true },
   });
-  const staff = await prisma.staff.findMany({ where: { salonId: salon.id, isActive: true } });
-  if (services.length === 0 || staff.length === 0) {
-    throw new Error("Rose salon has no active services or staff.");
+  const previousIds = previous.map((booking) => booking.id);
+
+  if (previousIds.length > 0) {
+    await prisma.payment.deleteMany({ where: { bookingId: { in: previousIds } } });
+    await prisma.bookingItem.deleteMany({ where: { bookingId: { in: previousIds } } });
+    await prisma.booking.deleteMany({ where: { id: { in: previousIds } } });
+    console.log(`Cleared ${previousIds.length} previous sample booking(s).`);
   }
 
-  let customers = await prisma.user.findMany({ where: { role: "CUSTOMER" }, take: 3 });
-  if (customers.length === 0) {
-    const demo = await prisma.user.create({
-      data: { email: "demo.customer@salonhub.sa", name: "Demo Customer", role: "CUSTOMER" },
-    });
-    customers = [demo];
-  }
+  const customers = await ensureCustomers();
+  const now = new Date();
+  let sequence = 0;
 
-  // Clear any previous sample rows (payments + items + bookings) for a clean re-run.
-  const old = await prisma.booking.findMany({ where: { notes: MARKER }, select: { id: true } });
-  const oldIds = old.map((b) => b.id);
-  if (oldIds.length) {
-    await prisma.payment.deleteMany({ where: { bookingId: { in: oldIds } } });
-    await prisma.bookingItem.deleteMany({ where: { bookingId: { in: oldIds } } });
-    await prisma.booking.deleteMany({ where: { id: { in: oldIds } } });
-    console.log(`Cleared ${oldIds.length} previous sample booking(s).`);
-  }
-
-  // 6 paid + 1 refunded, spread ~one per month across the last 6 months so the
-  // overview's monthly revenue chart shows a trend rather than a single bar.
-  const plan = [
-    { daysAgo: 8, status: "SUCCEEDED" as const },
-    { daysAgo: 40, status: "SUCCEEDED" as const },
-    { daysAgo: 72, status: "SUCCEEDED" as const },
-    { daysAgo: 104, status: "SUCCEEDED" as const },
-    { daysAgo: 136, status: "SUCCEEDED" as const },
-    { daysAgo: 168, status: "SUCCEEDED" as const },
-    { daysAgo: 20, status: "REFUNDED" as const },
-  ];
-
-  let net = 0, gross = 0, fees = 0, paid = 0;
-
-  for (const [i, p] of plan.entries()) {
-    const service = services[i % services.length];
-    const member = staff[i % staff.length];
-    const customer = customers[i % customers.length];
-    const refunded = p.status === "REFUNDED";
-
-    const start = new Date();
-    start.setDate(start.getDate() - p.daysAgo);
-    start.setHours(14, 0, 0, 0);
-    const end = new Date(start.getTime() + service.durationMinutes * 60_000);
-
-    const amount = Number(service.price);
-    const platformFee = round2(amount * COMMISSION);
-    const salonNet = round2(amount - platformFee);
-
-    await prisma.booking.create({
-      data: {
-        customerId: customer.id,
-        salonId: salon.id,
-        startTime: start,
-        endTime: end,
-        status: refunded ? "CANCELLED" : "COMPLETED",
-        totalPrice: amount,
-        notes: MARKER,
-        items: {
-          create: [
-            {
-              serviceId: service.id,
-              staffId: member.id,
-              startTime: start,
-              endTime: end,
-              durationMinutes: service.durationMinutes,
-              price: amount,
-              position: 0,
-              // COMPLETED/CANCELLED are non-blocking, so the staff-overlap
-              // EXCLUDE constraint never fires for this backfill.
-              status: refunded ? "CANCELLED" : "COMPLETED",
-            },
-          ],
-        },
-        payment: {
-          create: {
-            gatewayPaymentId: `seed-rev-${i + 1}`,
-            amount,
-            currency: "SAR",
-            status: p.status,
-            platformFee,
-            salonNet,
-            refundedAmount: refunded ? amount : null,
-            createdAt: start,
-          },
-        },
-      },
-    });
-
-    if (!refunded) {
-      net += salonNet;
-      gross += amount;
-      fees += platformFee;
-      paid += 1;
+  for (const [slug, { perMonth, commission }] of Object.entries(PLAN)) {
+    const salon = await prisma.salon.findUnique({ where: { slug } });
+    if (!salon) {
+      console.warn(`Skipping ${slug}: not found. Seed the base data first.`);
+      continue;
     }
-  }
 
-  console.log(
-    `Seeded ${plan.length} bookings for "${salon.nameEn}". Revenue tiles => ` +
-      `net ${round2(net)}, gross ${round2(gross)}, fees ${round2(fees)}, paid ${paid}.`,
-  );
+    const services = await prisma.service.findMany({
+      where: { salonId: salon.id, isActive: true },
+      orderBy: { price: "asc" },
+    });
+    const staff = await prisma.staff.findMany({
+      where: { salonId: salon.id, isActive: true },
+    });
+
+    if (services.length === 0 || staff.length === 0) {
+      console.warn(`Skipping ${slug}: no active services or staff.`);
+      continue;
+    }
+
+    let net = 0;
+    let gross = 0;
+    let fees = 0;
+    let paid = 0;
+
+    // perMonth[0] is five months ago; the last entry is the current month.
+    for (const [monthIndex, count] of perMonth.entries()) {
+      for (let n = 0; n < count; n += 1) {
+        const monthsAgo = perMonth.length - 1 - monthIndex;
+
+        const start = new Date(now);
+        start.setMonth(start.getMonth() - monthsAgo);
+        // Spread within the month, but never into the future: the current month
+        // is only partly elapsed, so a day-25 booking in it would not have
+        // happened yet.
+        const day = Math.min(3 + n * 6, monthsAgo === 0 ? Math.max(now.getDate() - 1, 1) : 26);
+        start.setDate(Math.max(day, 1));
+        start.setHours(11 + (n % 6), 0, 0, 0);
+
+        const service = services[sequence % services.length];
+        const member = staff[sequence % staff.length];
+        const customer = customers[sequence % customers.length];
+
+        // One refunded booking per salon, so the tiles show a non-settled row
+        // being correctly excluded from the totals.
+        const refunded = monthsAgo === 1 && n === 0;
+
+        const end = new Date(start.getTime() + service.durationMinutes * 60_000);
+        const amount = Number(service.price);
+        const platformFee = round2(amount * commission);
+        const salonNet = round2(amount - platformFee);
+
+        sequence += 1;
+
+        await prisma.booking.create({
+          data: {
+            customerId: customer.id,
+            salonId: salon.id,
+            startTime: start,
+            endTime: end,
+            status: refunded ? "CANCELLED" : "COMPLETED",
+            totalPrice: amount,
+            notes: MARKER,
+            items: {
+              create: [
+                {
+                  serviceId: service.id,
+                  staffId: member.id,
+                  startTime: start,
+                  endTime: end,
+                  durationMinutes: service.durationMinutes,
+                  price: amount,
+                  position: 0,
+                  // COMPLETED/CANCELLED are non-blocking, so the staff-overlap
+                  // EXCLUDE constraint never fires for this backfill.
+                  status: refunded ? "CANCELLED" : "COMPLETED",
+                },
+              ],
+            },
+            payment: {
+              create: {
+                gatewayPaymentId: `seed-rev-${sequence}`,
+                amount,
+                currency: "SAR",
+                status: refunded ? "REFUNDED" : "SUCCEEDED",
+                platformFee,
+                salonNet,
+                refundedAmount: refunded ? amount : null,
+                createdAt: start,
+              },
+            },
+          },
+        });
+
+        if (!refunded) {
+          net += salonNet;
+          gross += amount;
+          fees += platformFee;
+          paid += 1;
+        }
+      }
+    }
+
+    console.log(
+      `${salon.nameEn}: ${paid} paid · gross ${gross.toFixed(2)} · ` +
+        `commission ${fees.toFixed(2)} (${(commission * 100).toFixed(0)}%) · net ${net.toFixed(2)}`,
+    );
+  }
+}
+
+/** Demo customers, looked up by email so a re-run reuses them. */
+async function ensureCustomers() {
+  const existing = await prisma.user.findMany({ where: { role: "CUSTOMER" }, take: 3 });
+  if (existing.length > 0) return existing;
+
+  return [
+    await prisma.user.create({
+      data: { email: "demo.customer@salonhub.sa", name: "Demo Customer", role: "CUSTOMER" },
+    }),
+  ];
 }
 
 main()
-  .then(() => prisma.$disconnect())
-  .catch((e) => {
-    console.error(e);
-    return prisma.$disconnect().finally(() => process.exit(1));
-  });
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => prisma.$disconnect());
