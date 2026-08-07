@@ -3,6 +3,7 @@ import { auth } from "@/server/auth/config";
 import { getOwnedSalon } from "@/server/salon/owner";
 import { saveSalon } from "@/server/salon/actions";
 import { LocationPicker } from "@/components/map/location-picker";
+import { imageUrl } from "@/server/images/store";
 import type { GenderFocus } from "@/generated/prisma/enums";
 
 type Props = {
@@ -45,7 +46,15 @@ export default async function OwnerProfilePage({ params, searchParams }: Props) 
       )}
       {error && (
         <p role="alert" className="mt-4 rounded-lg border border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-          {t("errorInvalid")}
+          {/* A rejected cover says why, rather than a bare "invalid" that leaves
+              the owner re-picking the same file. */}
+          {error === "photo-too-large"
+            ? t("photoTooLarge")
+            : error === "photo-unsupported"
+              ? t("photoUnsupported")
+              : error === "photo-corrupt"
+                ? t("photoCorrupt")
+                : t("errorInvalid")}
         </p>
       )}
 
@@ -102,6 +111,40 @@ export default async function OwnerProfilePage({ params, searchParams }: Props) 
           <span className="text-sm font-medium">{t("address")}</span>
           <input name="address" required defaultValue={salon?.address ?? ""} className={field} />
         </label>
+
+        {/* Cover photo. Same three choices as the staff photo field: pick a file
+            to replace, tick to remove, or touch neither and keep what is there. */}
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium">{t("cover")}</span>
+
+          {salon?.coverImageId ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl(salon.coverImageId)}
+              alt=""
+              className="h-40 w-full max-w-md rounded-xl border border-hairline object-cover"
+            />
+          ) : (
+            <div className="flex h-40 w-full max-w-md items-center justify-center rounded-xl border border-dashed border-hairline text-sm text-muted">
+              {t("coverNone")}
+            </div>
+          )}
+
+          <input
+            type="file"
+            name="cover"
+            accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+            className="text-sm file:me-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-1.5 file:text-sm file:font-medium file:text-[#10130a]"
+          />
+          <p className="text-xs text-muted">{t("coverHelp")}</p>
+
+          {salon?.coverImageId && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="removeCover" />
+              {t("removeCover")}
+            </label>
+          )}
+        </div>
 
         {/* The written address is what a customer reads; the pin is what puts the
             salon in "near me" results. Both are kept — a geocoder cannot be

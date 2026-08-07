@@ -116,7 +116,13 @@ model Salon {
   lat           Float?
   lng           Float?
   phone         String
-  coverImageUrl String?
+
+  // Replaces `coverImageUrl String?`, modelled in M1 and never written. Same
+  // move as Staff.photoId, and for the same reason — the upload path should be
+  // the only way a picture gets here.
+  coverImageId String? @unique
+  coverImage   Image?  @relation(fields: [coverImageId], references: [id])
+
   avgRating     Float       @default(0)
   reviewCount   Int         @default(0)
 
@@ -165,7 +171,11 @@ model Image {
 
   createdAt DateTime @default(now())
 
-  staff Staff?
+  // One back-relation per thing an image can be. Both are optional and at most
+  // one is ever set, so a row is owned by exactly one record and deleting that
+  // record's reference is what makes the row collectable.
+  staff      Staff?
+  salonCover Salon?
 }
 
 model SalonPhoto {

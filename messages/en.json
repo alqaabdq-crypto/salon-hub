@@ -189,7 +189,11 @@
     "removePhoto": "Remove the current photo",
     "photoTooLarge": "That image is too large. The limit is 8 MB.",
     "photoUnsupported": "That file type is not supported. Use JPEG, PNG, WebP, AVIF or GIF.",
-    "photoCorrupt": "That file could not be read as an image."
+    "photoCorrupt": "That file could not be read as an image.",
+    "cover": "Cover photo",
+    "coverNone": "No cover photo yet",
+    "coverHelp": "Shown at the top of your salon page and on the salon cards customers browse. A wide photo works best. Leave empty to keep the current one.",
+    "removeCover": "Remove the current cover photo"
   },
   "Admin": {
     "title": "Admin",

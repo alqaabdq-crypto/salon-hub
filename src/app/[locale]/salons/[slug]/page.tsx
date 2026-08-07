@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/content";
 import { prisma } from "@/server/db/prisma";
 import { StaffAvatar } from "@/components/staff-avatar";
+import { imageUrl } from "@/server/images/store";
 import type { DayOfWeek } from "@/generated/prisma/enums";
 
 // Saturday-first: the working week in Saudi Arabia runs Sunday–Thursday, and
@@ -79,7 +80,21 @@ export default async function SalonPage({ params }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 p-6">
-      <header className="card-surface rounded-2xl p-6">
+      <header className="card-surface overflow-hidden rounded-2xl">
+        {/* The cover sits above the padding so it runs edge to edge in the card.
+            Purely decorative — every fact it might convey is in the text below,
+            so it carries an empty alt rather than a description of a photograph
+            nobody has written a caption for. */}
+        {salon.coverImageId && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl(salon.coverImageId)}
+            alt=""
+            className="h-48 w-full object-cover sm:h-64"
+          />
+        )}
+
+        <div className="p-6">
         <span className="gradient-brand mb-4 block h-1.5 w-14 rounded-full" aria-hidden />
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-extrabold tracking-tight">
@@ -107,6 +122,7 @@ export default async function SalonPage({ params }: Props) {
         </p>
 
         <p className="mt-4">{localized(salon, "description", locale)}</p>
+        </div>
       </header>
 
       <section className="mt-10">

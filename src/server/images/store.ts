@@ -10,9 +10,20 @@ import type { Prisma } from "@/generated/prisma/client";
  * here exists to keep that number small and predictable.
  */
 
-/** Longest edge after resizing. A staff avatar renders at ~96px; 512 leaves room
- *  for retina and for the photo being reused somewhere larger later. */
-const MAX_EDGE = 512;
+/**
+ * Longest edge after resizing, per kind of image.
+ *
+ * An avatar renders at ~96px, so 512 covers retina with room to spare. A cover
+ * spans the full content column (max-w-5xl, 1024px), and 1280 keeps it sharp on
+ * a normal display without storing a photograph at full camera resolution in a
+ * database row.
+ */
+export const MAX_EDGE = {
+  avatar: 512,
+  cover: 1280,
+} as const;
+
+export type ImageKind = keyof typeof MAX_EDGE;
 
 /** Refused before decoding. A modern phone photo is 3–8 MB, so this accepts a
  *  straight-from-camera upload while refusing something pathological. */
@@ -38,6 +49,7 @@ export type StoreResult =
  */
 export async function storeImage(
   file: File,
+  kind: ImageKind,
   client: Prisma.TransactionClient | typeof prisma = prisma,
 ): Promise<StoreResult> {
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, reason: "too-large" };
@@ -51,8 +63,8 @@ export async function storeImage(
     const pipeline = sharp(input)
       .rotate()
       .resize({
-        width: MAX_EDGE,
-        height: MAX_EDGE,
+        width: MAX_EDGE[kind],
+        height: MAX_EDGE[kind],
         fit: "inside",
         // Never upscale: a 200px thumbnail stays 200px rather than being
         // stretched to 512 and stored at several times the size for no gain.
@@ -106,4 +118,37 @@ export async function deleteImage(
 /** The public path for an image. The only place this URL shape is constructed. */
 export function imageUrl(imageId: string): string {
   return `/api/images/${imageId}`;
+}
+
+export type UploadOutcome =
+  | { ok: true; imageId: string | null; changed: boolean }
+  | { ok: false; reason: "too-large" | "unsupported" | "corrupt" };
+
+/**
+ * Turns a posted file field into an intent to write, leave alone, or clear.
+ *
+ * Shared by the staff and salon forms, which both express the same three
+ * choices through the same pair of inputs: pick a file to replace, tick a box to
+ * remove, or touch neither and keep what is there. `changed: false` means the
+ * caller must not write the column at all — saving a form without touching its
+ * file input has to leave the existing picture alone.
+ */
+export async function readUpload(
+  formData: FormData,
+  options: { field: string; removeField: string; kind: ImageKind },
+): Promise<UploadOutcome> {
+  const upload = formData.get(options.field);
+
+  if (upload instanceof File && upload.size > 0) {
+    const stored = await storeImage(upload, options.kind);
+    return stored.ok
+      ? { ok: true, imageId: stored.imageId, changed: true }
+      : { ok: false, reason: stored.reason };
+  }
+
+  if (formData.get(options.removeField) === "on") {
+    return { ok: true, imageId: null, changed: true };
+  }
+
+  return { ok: true, imageId: null, changed: false };
 }

@@ -10,6 +10,7 @@ import {
   RADIUS_OPTIONS,
   withinRadius,
 } from "@/server/salon/nearby";
+import { imageUrl } from "@/server/images/store";
 import { NearMeButton } from "@/components/map/near-me-button";
 import { SalonsMap, type MappedSalon } from "@/components/map/salons-map";
 import type { GenderFocus } from "@/generated/prisma/enums";
@@ -284,10 +285,26 @@ export default async function SalonsPage({ params, searchParams }: Props) {
               <li key={salon.id}>
                 <Link
                   href={`/salons/${salon.slug}`}
-                  className="card-surface group block h-full rounded-2xl p-5"
+                  className="card-surface group block h-full overflow-hidden rounded-2xl"
                 >
-                  {/* Gradient ribbon so a text-only card still carries brand color. */}
-                  <span className="gradient-brand mb-4 block h-1.5 w-12 rounded-full" aria-hidden />
+                  {/* Cover, when the salon has one. Lazy so a long results page
+                      does not fetch every photo before the reader scrolls. */}
+                  {salon.coverImageId && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imageUrl(salon.coverImageId)}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="h-36 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                    />
+                  )}
+
+                  <div className="p-5">
+                  {/* Gradient ribbon so a card with no cover still carries brand color. */}
+                  {!salon.coverImageId && (
+                    <span className="gradient-brand mb-4 block h-1.5 w-12 rounded-full" aria-hidden />
+                  )}
 
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="font-semibold transition group-hover:text-brand">
@@ -341,6 +358,7 @@ export default async function SalonsPage({ params, searchParams }: Props) {
                           }),
                         })}
                   </p>
+                  </div>
                 </Link>
               </li>
             );

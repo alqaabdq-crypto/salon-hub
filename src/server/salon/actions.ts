@@ -9,7 +9,7 @@ import { prisma } from "@/server/db/prisma";
 import { setBookingStatus } from "@/server/booking/status";
 import { refundIfPaid } from "@/server/payments/service";
 import { requireOwnedSalon, uniqueSlug } from "@/server/salon/owner";
-import { deleteImage, storeImage } from "@/server/images/store";
+import { deleteImage, readUpload } from "@/server/images/store";
 import { parseClock } from "@/server/booking/time";
 import type { DayOfWeek } from "@/generated/prisma/enums";
 
@@ -103,26 +103,48 @@ export async function saveSalon(formData: FormData): Promise<void> {
     return redirect({ href: "/auth/login", locale });
   }
 
+  const cover = await readUpload(formData, {
+    field: "cover",
+    removeField: "removeCover",
+    kind: "cover",
+  });
+
+  if (!cover.ok) {
+    return redirect({ href: ownerPath("/owner/profile", `photo-${cover.reason}`), locale });
+  }
+
+  const coverUpdate = cover.changed ? { coverImageId: cover.imageId } : {};
+
   const existing = await prisma.salon.findFirst({
     where: { ownerId: session.user.id },
     orderBy: { createdAt: "asc" },
-    select: { id: true },
+    select: { id: true, coverImageId: true },
   });
 
   if (existing) {
     // The slug is deliberately not recomputed on rename: it is the public URL,
     // and silently moving it would break every link a salon has shared.
-    await prisma.salon.update({ where: { id: existing.id }, data: fields });
+    await prisma.salon.update({
+      where: { id: existing.id },
+      data: { ...fields, ...coverUpdate },
+    });
   } else {
     await prisma.salon.create({
       data: {
         ...fields,
+        ...coverUpdate,
         ownerId: session.user.id,
         slug: await uniqueSlug(fields.nameEn),
         // A new salon is invisible to customers until an admin approves it.
         status: "PENDING_VERIFICATION",
       },
     });
+  }
+
+  // Only after the row above points somewhere else, so a failed write cannot
+  // leave the salon with no cover.
+  if (existing?.coverImageId && cover.changed && existing.coverImageId !== cover.imageId) {
+    await deleteImage(existing.coverImageId);
   }
 
   revalidatePath(`/${locale}/owner`);
@@ -233,20 +255,17 @@ export async function saveStaff(formData: FormData): Promise<void> {
   // transaction below: resizing is the slowest thing in this action by an order
   // of magnitude, and holding a write transaction open across it would make
   // every other staff save on this salon wait for someone else's upload.
-  const upload = formData.get("photo");
-  const removePhoto = formData.get("removePhoto") === "on";
+  const photo = await readUpload(formData, {
+    field: "photo",
+    removeField: "removePhoto",
+    kind: "avatar",
+  });
 
-  let uploadedImageId: string | null = null;
-
-  if (upload instanceof File && upload.size > 0) {
-    const stored = await storeImage(upload);
-
-    if (!stored.ok) {
-      return redirect({ href: ownerPath("/owner/staff", `photo-${stored.reason}`), locale });
-    }
-
-    uploadedImageId = stored.imageId;
+  if (!photo.ok) {
+    return redirect({ href: ownerPath("/owner/staff", `photo-${photo.reason}`), locale });
   }
+
+  const uploadedImageId = photo.imageId;
 
   // The photo being replaced or cleared, so its row can be dropped afterwards.
   const previousPhotoId = staffId
@@ -260,12 +279,7 @@ export async function saveStaff(formData: FormData): Promise<void> {
 
   // Absent key means "leave the existing photo alone" — a save that does not
   // touch the file input must not silently delete the member's picture.
-  const photoUpdate =
-    uploadedImageId !== null
-      ? { photoId: uploadedImageId }
-      : removePhoto
-        ? { photoId: null }
-        : {};
+  const photoUpdate = photo.changed ? { photoId: photo.imageId } : {};
 
   // Services this member performs, and the shifts they work. Both are posted
   // with the member, so one save leaves no half-configured staff behind.

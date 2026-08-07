@@ -14,7 +14,41 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-07, latest):** *"allow the owners to put profile pictures or
+**Asked (2026-08-07, latest):** *"now add the salon cover photo as well."*
+
+**Answered:** Done, on the machinery built an hour earlier. Owners upload a cover
+on `/owner/profile`; it renders as a full-bleed hero on the salon page **and on the
+browse cards, which were text-only until now** — the biggest visual change the
+marketplace has had.
+
+- **`Salon.coverImageUrl` is gone**, replaced by `coverImageId` the same way
+  `Staff.photoUrl` was. Migration `20260807190000_salon_cover_image`. That is both
+  of M1's dead image columns now removed.
+- **The size cap became per-kind.** `MAX_EDGE` is now `{ avatar: 512, cover: 1280 }`
+  — an avatar renders at ~96px, a cover spans the full 1024px content column. A
+  3000×2000 upload comes back **1280×853 and 2 KB**.
+- **The replace/remove/cleanup dance is shared, not duplicated.** `readUpload`
+  turns a posted file field into one of three intents — write, clear, or leave
+  alone — and both `saveSalon` and `saveStaff` use it. `saveStaff` was refactored
+  onto it and re-verified afterwards.
+
+**Verified with 10 new browser checks** on top of the 13 for staff photos: upload
+accepted, resized to the cover cap specifically (proving the two limits are really
+distinct), aspect ratio preserved, replacing deletes the old row, **a save that
+never touches the file input keeps the existing cover**, removal 404s, and the
+detail page falls back cleanly with no cover. The staff suite was re-run after the
+refactor and still passes. 9 images in the database against 9 references — **no
+orphans**, so the lifecycle handling holds. Typecheck, lint and 68 tests clean.
+
+⚠️ **Still placeholders.** `scripts/seed-sample-photos.ts` (renamed from
+`seed-sample-staff-photos.ts`) now seeds both avatars and covers — abstract
+gradients, not stock photography. The generated covers have the salon name baked
+into the image, so the name appears twice on a card; that is an artifact of the
+placeholder, not of the layout.
+
+---
+
+**Asked (2026-08-07):** *"allow the owners to put profile pictures or
 individuals picture in their bio."* — scoped in follow-up to **staff photos**,
 stored **in Postgres and served by a route** (chosen over object storage because it
 needs no account, no keys and no bill, and behaves the same on Neon once deployed).
@@ -61,7 +95,7 @@ Separately, two Server Actions on one page have **two different action ids**, an
 posting to the wrong one succeeds with a 303 while doing nothing at all.
 
 ⚠️ **The avatars now showing are placeholders**, from
-`scripts/seed-sample-staff-photos.ts` (demo only, idempotent, `--clear` removes
+`scripts/seed-sample-photos.ts` (demo only, idempotent, `--clear` removes
 them, never overwrites a real upload). They are abstract gradient discs, not stock
 portraits of people who do not exist.
 
@@ -323,7 +357,7 @@ payments, as originally planned.
 | M5 | Payments via Moyasar | ✅ Shipped (`ee46d52`) — needs live keys to exercise |
 | M6 | Design & product layer — dark theme, website testimonials, owner revenue tab + chart | ✅ Shipped (`2ccee68`) |
 | M7 | Location & discovery — owner map picker, proximity search, ratings surfaced | ✅ Shipped (`05ed9f1`) — ratings shown are seeded |
-| M8 | Staff photos — upload, resize/re-encode, serve from DB | ✅ Shipped — avatars shown are placeholders |
+| M8 | Photos — staff avatars and salon covers: upload, resize/re-encode, serve from DB | ✅ Shipped — images shown are placeholders |
 
 **All seven original milestones are covered.** The first plan's M6 (reviews) and M7
 (polish, SEO, deploy) were dissolved by the 2026-07-19 renumbering: review *display*
@@ -340,10 +374,11 @@ ran out, requested session by session rather than scoped up front:
   with a visible gap behind it: browse cards and map pins show star ratings, and
   every one of them comes from a demo seeder, because nothing in the app writes a
   review. Detail under "Completed 2026-08-04".
-- **M8** is staff photo uploads, 2026-08-07. The feature is complete — owners can
-  really upload — but the avatars currently on screen are placeholders from a demo
-  seeder, so the same "looks finished, is seeded" caution applies. Detail in the
-  latest entry at the top of this file.
+- **M8** is photo uploads, 2026-08-07 — staff avatars first, salon covers the same
+  day, both on the same `Image` table and route. The feature is complete and owners
+  can really upload, but every image currently on screen is a placeholder from a
+  demo seeder, so the same "looks finished, is seeded" caution applies as for M7's
+  ratings. Detail in the two latest entries at the top of this file.
 
 Neither was anchored in a commit message the way `Milestone 1` and `M5 integrates
 Moyasar` were, so these numbers live only in this file. Treat the commit hashes,
@@ -952,11 +987,14 @@ The milestone table says shipped; this says what "shipped" does not mean.
   but it has still never been deploy-*ed* to a host.
 - **No notifications.** Neither the customer nor the salon is told anything
   outside the web UI. SMS/WhatsApp is near-mandatory in this market.
-- **Salon photos are still not done — only *staff* photos are.** As of 2026-08-07
-  a team member can have a picture, but `Salon.coverImageUrl` and the `SalonPhoto`
-  gallery table remain modelled and unused, so browse cards and salon headers are
-  still text-only. The upload machinery (`server/images/store.ts`, the `Image`
-  table, `/api/images/[id]`) is general, so both are now mostly wiring.
+- **The salon photo *gallery* is still not done.** Staff avatars and salon covers
+  both ship as of 2026-08-07, but the `SalonPhoto` table remains modelled and
+  unused — there is no multi-photo gallery, and no add/remove/reorder UI. The
+  upload machinery is general, so this is mostly wiring plus ordering.
+- **There is one rendition per image, and browse serves the big one.** A cover is
+  stored at 1280px and the browse card displays it at ~360px wide. Harmless at
+  three salons (37 kB of images in total); wasteful at a hundred. The fix is a
+  thumbnail rendition at upload time, or a width parameter on the image route.
 - **Images live in the database, which is a decision with a shelf life.** Fine at
   14 kB of avatars; wrong once salons upload galleries. There is no CDN and every
   byte is in backups. Moving to object storage means changing the write path and
