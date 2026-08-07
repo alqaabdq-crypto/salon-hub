@@ -1,6 +1,6 @@
 # Salon Hub — Progress Report
 
-**Last updated:** 2026-08-04
+**Last updated:** 2026-08-07
 
 Salon Hub is a bilingual (English / Arabic, RTL) salon-booking marketplace for
 Saudi Arabia. Customers discover and book salons; salon owners manage their
@@ -14,7 +14,32 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-04, latest):** *"i need the owner of the salon to be able to select
+**Asked (2026-08-07, latest):** *"review the progress report and create the url for
+me so i can see the process and replace as required."*
+
+**Answered:** Reviewed (led with the entry below) and **brought the URL back**:
+**`https://connections-vehicles-friday-country.trycloudflare.com`**.
+
+No rebuild was needed — Docker Postgres was still up, the production server on
+`:3111` had survived, and the only commits since the last build (`e3fc61c`,
+`7dfdf01`) touch `PROGRESS.md` alone, so the running build already matched HEAD.
+What had died was the **quick tunnel**: the `cloudflared` process was still alive
+from 2026-08-04 but its hostname had expired and returned nothing. Killed it and
+minted a fresh one — **this is the normal failure mode, and the process staying up
+is not evidence the tunnel works. Always curl the hostname, not the process list.**
+
+Re-verified rather than trusting the 200s: six routes respond, and all **12 browser
+checks pass** against the new hostname (tiles paint, pin badge `★ 4.8`, popup reads
+*"Rose Beauty Lounge ★ 4.8 · 4 reviews · 2.7 km away"*, picker prefills and rewrites
+on click, Arabic renders RTL).
+
+**Nothing was replaced or changed** — the request was to see it, and no specific
+amendment followed. The open gaps are unchanged: no customer review-writing (so
+every star on the site is still seeded), no real deployment, no Moyasar test call.
+
+---
+
+**Asked (2026-08-04):** *"i need the owner of the salon to be able to select
 the location through maps"* — scoped in follow-up to: **owner picks the location,
 and customers see what is near them and the ratings of the salons near them.**
 Provider chosen by the owner: **Leaflet + OpenStreetMap** (no API key, no billing).
@@ -188,8 +213,8 @@ Now live: **https://github.com/alqaabdq-crypto/salon-hub** (default branch `main
   Unused `card*` keys in the `Home` namespace are harmless leftovers.
 
 **Live tunnel (ephemeral):** the Cloudflare quick-tunnel hostname **changes on
-every relaunch** and dies when the laptop sleeps (last live 2026-08-04:
-`treasure-satin-jones-usd.trycloudflare.com`). Hard-refresh (Ctrl+Shift+R)
+every relaunch** and dies when the laptop sleeps (last live 2026-08-07:
+`connections-vehicles-friday-country.trycloudflare.com`). Hard-refresh (Ctrl+Shift+R)
 after any redeploy to clear old CSS; it exposes the machine + local DB while up.
 
 **Still owed:** the *durable* URL (Vercel + Neon, ~15 min, blocked on `vercel login`
@@ -1036,11 +1061,17 @@ couple of leftover test accounts — so it is **well past the pristine seed**. B
 demo seeders are idempotent, marker-tagged and safe to re-run or delete.
 
 A Cloudflare quick tunnel serves the production build from `C:\temp\salon-hub-live`
-(last live: `treasure-satin-jones-usd.trycloudflare.com`); **its hostname rotates
-on every relaunch and it dies when the laptop sleeps**, so treat any pinned URL as
-ephemeral. Restarting it is: sync the tree out of OneDrive, `npm run build`,
-`npx next start -p 3111`, then point `cloudflared` at 3111 — full commands under
-"Deployment".
+(last live 2026-08-07: `connections-vehicles-friday-country.trycloudflare.com`);
+**its hostname rotates on every relaunch**, so treat any pinned URL as ephemeral.
+
+**Check what is actually down before rebuilding anything.** On 2026-08-07 the
+Postgres container, the production server on `:3111` and even the `cloudflared`
+process were all still up after three days — only the tunnel *hostname* had
+expired. A live `cloudflared` process is **not** evidence of a working tunnel;
+curl the hostname. In that state the whole restart is one command: kill
+`cloudflared` and point a new one at 3111. Rebuild only when app code has moved —
+`git diff --name-only <last-built-commit> HEAD` settles it, and doc-only commits
+do not count. Full commands under "Deployment".
 
 **Screenshot verification now works.** `npx playwright install chromium` resolved
 the WebKit/package mismatch that blocked it for two sessions. Use it: two real
