@@ -14,7 +14,54 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-07, latest):** *"now add the salon cover photo as well."*
+**Asked (2026-08-07, latest):** *"build me a customer services option."* — scoped in
+follow-up to **support against the platform** (not salon messaging), with the loop
+closed: **submit → admin replies → customer reads the reply**.
+
+**Answered:** New `SupportTicket` model, a public `/help` page, and an admin queue
+at `/admin/support`. Migration `20260807200000_support_tickets`.
+
+- **Guests can raise a ticket.** `customerId` is nullable on purpose — the person
+  most in need of support is often the one who cannot sign in — so `name` and
+  `email` are always captured rather than read off the account. The admin queue
+  flags account-less tickets, since "I cannot sign in" is exactly the case.
+- **Signed-in customers see the loop close.** Their tickets, statuses and the
+  admin's reply all appear on `/help` under their own history. A signed-out sender
+  is told plainly that they will not see the reply there.
+- **A ticket can carry a booking**, but only one the sender actually owns —
+  otherwise the field is a way to probe whether an arbitrary booking id exists.
+- **Answering and closing are separate acts.** Replying sets `ANSWERED`; the admin
+  ticks a box to also mark `RESOLVED`, because most replies invite a follow-up.
+  Status can be moved without a reply, for things handled by phone.
+- **Spam mitigations that survive JS being off** — the concern raised when
+  `SiteReview` shipped with open submission and nothing else. A honeypot field
+  (accepted with a normal success redirect, so a bot learns nothing), length
+  limits, and a cap of 5 open tickets per email address. **None of this stops a
+  determined attacker**; real rate limiting or a captcha would.
+- Whole thing is no-JS: plain Server Action forms, plain link filters on the queue.
+
+**Verified with 19 browser checks** covering the entire loop end to end — guest
+submits, customer submits, admin replies, customer reads it back — plus the
+**authorization boundary** (signed out → login, salon owner → home) and Arabic RTL
+with no missing messages. Confirmed against Postgres that the **honeypot submission
+was silently discarded** rather than merely appearing to succeed, which the browser
+alone could not tell. Typecheck, lint and 68 tests clean.
+
+⚠️ **Notifications still do not exist**, and this feature wants them more than
+anything built so far: a customer only discovers a reply by returning to `/help`,
+and an admin only discovers a ticket by opening the queue. See "What is genuinely
+not done".
+
+**Mistake worth recording — I destroyed the build directory.** A `tar` in a command
+whose shell had reset its working directory to `C:\Users\Admin` archived the **home
+directory** into `C:\temp\salon-hub-live`. No source was touched (tar only read),
+and the target is a disposable build copy, but it had to be purged with robocopy
+and rebuilt from scratch. **Every sync command now uses `tar -C <project> …`** so a
+reset cwd cannot redirect it. Full note under "Environment notes".
+
+---
+
+**Asked (2026-08-07):** *"now add the salon cover photo as well."*
 
 **Answered:** Done, on the machinery built an hour earlier. Owners upload a cover
 on `/owner/profile`; it renders as a full-bleed hero on the salon page **and on the
@@ -358,6 +405,7 @@ payments, as originally planned.
 | M6 | Design & product layer — dark theme, website testimonials, owner revenue tab + chart | ✅ Shipped (`2ccee68`) |
 | M7 | Location & discovery — owner map picker, proximity search, ratings surfaced | ✅ Shipped (`05ed9f1`) — ratings shown are seeded |
 | M8 | Photos — staff avatars and salon covers: upload, resize/re-encode, serve from DB | ✅ Shipped — images shown are placeholders |
+| M9 | Customer service — support tickets, admin reply queue | ✅ Shipped — no notifications, so replies are pull-only |
 
 **All seven original milestones are covered.** The first plan's M6 (reviews) and M7
 (polish, SEO, deploy) were dissolved by the 2026-07-19 renumbering: review *display*
@@ -374,6 +422,10 @@ ran out, requested session by session rather than scoped up front:
   with a visible gap behind it: browse cards and map pins show star ratings, and
   every one of them comes from a demo seeder, because nothing in the app writes a
   review. Detail under "Completed 2026-08-04".
+- **M9** is customer service, 2026-08-07: platform support tickets with an admin
+  reply queue. Complete and verified end to end, but **pull-only** — with no
+  notifications, a reply is discovered by revisiting `/help` and a ticket by
+  opening the queue.
 - **M8** is photo uploads, 2026-08-07 — staff avatars first, salon covers the same
   day, both on the same `Image` table and route. The feature is complete and owners
   can really upload, but every image currently on screen is a placeholder from a
@@ -985,8 +1037,12 @@ The milestone table says shipped; this says what "shipped" does not mean.
   extensions, which on managed Postgres is often not the application's own user.
   The repo is now deploy-*ready* and **published publicly to GitHub** (2026-07-27),
   but it has still never been deploy-*ed* to a host.
-- **No notifications.** Neither the customer nor the salon is told anything
-  outside the web UI. SMS/WhatsApp is near-mandatory in this market.
+- **No notifications, and support made this worse.** Neither the customer nor the
+  salon is told anything outside the web UI, and as of 2026-08-07 that now includes
+  support: a customer discovers a reply only by returning to `/help`, and an admin
+  discovers a ticket only by opening the queue. A support channel nobody is paged
+  about is a slow support channel. SMS/WhatsApp is near-mandatory in this market;
+  email would be enough for support replies specifically.
 - **The salon photo *gallery* is still not done.** Staff avatars and salon covers
   both ship as of 2026-08-07, but the `SalonPhoto` table remains modelled and
   unused — there is no multi-photo gallery, and no add/remove/reorder UI. The
@@ -1093,6 +1149,14 @@ The milestone table says shipped; this says what "shipped" does not mean.
 
 ## Environment notes
 
+- **Never write a `tar` that depends on the shell's working directory.** The Bash
+  tool's cwd resets to `C:\Users\Admin` between calls. On 2026-08-07 a
+  `tar cf - … .` intended for the project archived the **entire home directory**
+  into `C:\temp\salon-hub-live`, which then had to be purged with
+  `robocopy /MIR` from an empty folder (plain `Remove-Item -Recurse` stalled on
+  locked files under the copied `AppData`). No source was harmed — tar only reads
+  — but the build copy was destroyed. **Always `tar -C <absolute-project-path>`**,
+  which makes the source explicit and the cwd irrelevant.
 - **Building inside OneDrive silently serves stale code.** Worse than the `EPERM`
   noted below, and it cost most of an hour on 2026-07-23. OneDrive treats files
   the build is writing under `.next` as edit conflicts: it renames the new file

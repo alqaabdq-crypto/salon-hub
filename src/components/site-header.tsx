@@ -36,6 +36,12 @@ export async function SiteHeader() {
         >
           {t("salons")}
         </Link>
+        <Link
+          href="/help"
+          className="text-sm font-medium whitespace-nowrap text-muted transition hover:text-brand"
+        >
+          {t("help")}
+        </Link>
 
         <div className="ms-auto flex items-center gap-3">
           <LocaleSwitcher />

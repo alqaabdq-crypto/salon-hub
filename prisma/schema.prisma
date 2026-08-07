@@ -96,6 +96,8 @@ model User {
   bookings  Booking[]
   reviews   Review[]
   favorites Favorite[]
+
+  supportTickets SupportTicket[]
 }
 
 // Catalog copy is bilingual (see README). `slug` stays single — it is URL-safe
@@ -295,6 +297,8 @@ model Booking {
   payment Payment?
   review  Review?
 
+  supportTickets SupportTicket[]
+
   @@index([salonId, startTime])
   @@index([customerId])
 }
@@ -425,6 +429,58 @@ model Review {
 
 /// Reviews of the Salon Hub platform itself (testimonials), shown at the bottom
 /// of the landing page. Unlike Review, these are not tied to a booking or salon.
+enum SupportStatus {
+  OPEN
+  ANSWERED
+  RESOLVED
+}
+
+enum SupportTopic {
+  BOOKING
+  PAYMENT
+  SALON
+  ACCOUNT
+  OTHER
+}
+
+/// A customer-service request raised against the platform, not against a salon.
+///
+/// `customerId` is nullable on purpose: the person most in need of support is
+/// often the one who cannot sign in, so a guest can raise a ticket. `name` and
+/// `email` are therefore always captured rather than read off the account —
+/// without them a guest ticket would be unanswerable.
+model SupportTicket {
+  id String @id @default(cuid())
+
+  customerId String?
+  customer   User?   @relation(fields: [customerId], references: [id])
+
+  name  String
+  email String
+
+  topic   SupportTopic
+  subject String
+  message String
+
+  // Optional context. Most tickets are about a specific visit, and having the
+  // booking to hand is the difference between answering and asking twice.
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  status     SupportStatus @default(OPEN)
+  adminReply String?
+  answeredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The admin queue reads open tickets oldest-first; the customer's own list
+  // reads by account.
+  @@index([status, createdAt])
+  @@index([customerId])
+  @@index([email])
+}
+
 model SiteReview {
   id        String   @id @default(cuid())
   name      String

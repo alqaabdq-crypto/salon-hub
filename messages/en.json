@@ -11,7 +11,8 @@
     "dashboard": "Dashboard",
     "login": "Log in",
     "register": "Sign up",
-    "logout": "Log out"
+    "logout": "Log out",
+    "help": "Help"
   },
   "Auth": {
     "Login": {
@@ -327,5 +328,44 @@
     "lng": "Longitude",
     "outsideSaudi": "That point is outside Saudi Arabia. Check the latitude and longitude are not swapped.",
     "clear": "Clear location"
+  },
+  "Support": {
+    "title": "Help and support",
+    "intro": "Something wrong with a booking, a payment or a salon? Tell us what happened and we will get back to you.",
+    "name": "Your name",
+    "email": "Email",
+    "topic": "What is this about?",
+    "topicBOOKING": "A booking",
+    "topicPAYMENT": "A payment or refund",
+    "topicSALON": "A salon",
+    "topicACCOUNT": "My account",
+    "topicOTHER": "Something else",
+    "booking": "Related booking (optional)",
+    "bookingNone": "Not about a specific booking",
+    "subject": "Subject",
+    "message": "What happened?",
+    "submit": "Send request",
+    "sent": "Thanks — your request has been received. You will find our reply on this page.",
+    "guestNote": "You are not signed in, so you will not see the reply here. Sign in before sending if you would like to track it.",
+    "errorInvalid": "Please check the form and try again. A message needs at least 10 characters.",
+    "errorTooMany": "You already have several open requests. We will answer those first before you send another.",
+    "yourRequests": "Your requests",
+    "noRequests": "You have not sent us anything yet.",
+    "replyFrom": "Salon Hub support",
+    "statusOPEN": "Open",
+    "statusANSWERED": "Answered",
+    "statusRESOLVED": "Resolved",
+    "adminTitle": "Support requests",
+    "filterAll": "All",
+    "queueEmpty": "Nothing here.",
+    "guest": "no account",
+    "reply": "Reply",
+    "replyAgain": "Update your reply",
+    "sendReply": "Send reply",
+    "replySent": "Reply saved.",
+    "replySentAt": "Replied {when}",
+    "alsoResolve": "Mark resolved too",
+    "markResolved": "Mark resolved",
+    "reopen": "Reopen"
   }
 }

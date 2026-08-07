@@ -25,9 +25,10 @@ export default async function AdminPage({ params, searchParams }: Props) {
   const { saved, error } = await searchParams;
   const t = await getTranslations("Admin");
   const tStatus = await getTranslations("SalonStatus");
+  const tSupport = await getTranslations("Support");
   const format = await getFormatter();
 
-  const [salons, customers, owners, bookings] = await Promise.all([
+  const [salons, customers, owners, bookings, openTickets] = await Promise.all([
     prisma.salon.findMany({
       include: {
         owner: { select: { name: true, email: true } },
@@ -39,6 +40,7 @@ export default async function AdminPage({ params, searchParams }: Props) {
     prisma.user.count({ where: { role: "CUSTOMER" } }),
     prisma.user.count({ where: { role: "SALON_OWNER" } }),
     prisma.booking.count(),
+    prisma.supportTicket.count({ where: { status: "OPEN" } }),
   ]);
 
   const pending = salons.filter((salon) => salon.status === "PENDING_VERIFICATION");
@@ -117,6 +119,18 @@ export default async function AdminPage({ params, searchParams }: Props) {
           {t("errorGeneric")}
         </p>
       )}
+
+      {/* The support queue is the other thing an admin is here to work, so it
+          gets a link rather than being reachable only by typing the URL. */}
+      <Link
+        href="/admin/support"
+        className="mt-8 flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 px-5 py-4 transition hover:border-brand/60"
+      >
+        <span className="font-medium">{tSupport("adminTitle")}</span>
+        <span className="rounded-full bg-brand px-3 py-0.5 text-sm font-bold text-[#10130a]">
+          {format.number(openTickets)}
+        </span>
+      </Link>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-4">
         {[
