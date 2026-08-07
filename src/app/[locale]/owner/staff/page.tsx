@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { localized } from "@/i18n/content";
 import { NeedsSalon } from "@/components/needs-salon";
+import { StaffAvatar } from "@/components/staff-avatar";
 import { auth } from "@/server/auth/config";
 import { prisma } from "@/server/db/prisma";
 import { getOwnedSalon } from "@/server/salon/owner";
@@ -56,7 +57,15 @@ export default async function OwnerStaffPage({ params, searchParams }: Props) {
       )}
       {error && (
         <p role="alert" className="mb-4 rounded-lg border border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-          {t("errorInvalid")}
+          {/* A rejected photo says why. "Invalid" alone would leave the owner
+              re-picking the same file with no idea what was wrong with it. */}
+          {error === "photo-too-large"
+            ? t("photoTooLarge")
+            : error === "photo-unsupported"
+              ? t("photoUnsupported")
+              : error === "photo-corrupt"
+                ? t("photoCorrupt")
+                : t("errorInvalid")}
         </p>
       )}
 
@@ -68,14 +77,17 @@ export default async function OwnerStaffPage({ params, searchParams }: Props) {
         <ul className="mt-4 divide-y divide-gray-200 dark:divide-gray-800">
           {staff.map((member) => (
             <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div>
-                <p className={`font-medium ${member.isActive ? "" : "text-gray-500 line-through"}`}>
-                  {member.name}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  {t("worksDays", { count: member.workingHours.length })} ·{" "}
-                  {t("performsServices", { count: member.staffServices.length })}
-                </p>
+              <div className="flex items-center gap-3">
+                <StaffAvatar name={member.name} photoId={member.photoId} size={44} />
+                <div>
+                  <p className={`font-medium ${member.isActive ? "" : "text-gray-500 line-through"}`}>
+                    {member.name}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {t("worksDays", { count: member.workingHours.length })} ·{" "}
+                    {t("performsServices", { count: member.staffServices.length })}
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-4">
@@ -124,6 +136,39 @@ export default async function OwnerStaffPage({ params, searchParams }: Props) {
             <span className="text-sm font-medium">{t("bioAr")}</span>
             <input name="bioAr" dir="rtl" defaultValue={editing?.bioAr ?? ""} className={field} />
           </label>
+        </div>
+
+        {/* Photo. A plain file input, so this works with JavaScript disabled like
+            the rest of the form — the upload is resized and re-encoded server
+            side, which is also the only place the file is ever trusted. */}
+        <div className="flex flex-wrap items-center gap-4">
+          <StaffAvatar
+            name={editing?.name ?? "?"}
+            photoId={editing?.photoId ?? null}
+            size={64}
+          />
+
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">{t("staffPhoto")}</span>
+              <input
+                type="file"
+                name="photo"
+                accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+                className="text-sm file:me-3 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-1.5 file:text-sm file:font-medium file:text-[#10130a]"
+              />
+            </label>
+            <p className="text-xs text-gray-600 dark:text-gray-300">{t("staffPhotoHelp")}</p>
+
+            {/* Only offered when there is something to remove. Leaving the file
+                input empty keeps the existing photo; this is how you clear it. */}
+            {editing?.photoId && (
+              <label className="mt-1 flex items-center gap-2 text-sm">
+                <input type="checkbox" name="removePhoto" />
+                {t("removePhoto")}
+              </label>
+            )}
+          </div>
         </div>
 
         <fieldset>

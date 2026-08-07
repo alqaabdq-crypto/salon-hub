@@ -3,6 +3,7 @@ import { getFormatter, getTranslations, setRequestLocale } from "next-intl/serve
 import { Link } from "@/i18n/navigation";
 import { localized } from "@/i18n/content";
 import { prisma } from "@/server/db/prisma";
+import { StaffAvatar } from "@/components/staff-avatar";
 import type { DayOfWeek } from "@/generated/prisma/enums";
 
 // Saturday-first: the working week in Saudi Arabia runs Sunday–Thursday, and
@@ -154,12 +155,15 @@ export default async function SalonPage({ params }: Props) {
             {salon.staff.map((member) => (
               <li
                 key={member.id}
-                className="card-surface rounded-2xl p-4"
+                className="card-surface flex items-start gap-3 rounded-2xl p-4"
               >
-                <p className="font-medium">{member.name}</p>
-                <p className="text-sm text-muted">
-                  {localized(member, "bio", locale)}
-                </p>
+                <StaffAvatar name={member.name} photoId={member.photoId} />
+                <div className="min-w-0">
+                  <p className="font-medium">{member.name}</p>
+                  <p className="text-sm text-muted">
+                    {localized(member, "bio", locale)}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>

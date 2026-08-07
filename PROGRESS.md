@@ -14,7 +14,60 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-07, latest):** *"review the progress report and create the url for
+**Asked (2026-08-07, latest):** *"allow the owners to put profile pictures or
+individuals picture in their bio."* — scoped in follow-up to **staff photos**,
+stored **in Postgres and served by a route** (chosen over object storage because it
+needs no account, no keys and no bill, and behaves the same on Neon once deployed).
+
+**Answered:** Owners can now upload a photo per team member on `/owner/staff`. It
+appears beside their bio on the public salon page and in the owner's team list,
+falling back to their initials when there is none.
+
+- **`Staff.photoUrl` is gone.** It was modelled in M1, never written, and null on
+  all six rows. Two ways to specify a photo would have been one too many, so it is
+  replaced by `photoId` pointing at a new `Image` table (bytes, MIME, dimensions,
+  size). Migration `20260807120000_staff_photo_images`.
+- **Uploads are re-encoded, not just stored.** `server/images/store.ts` runs every
+  file through sharp: EXIF rotation applied then stripped, resized to fit 512px
+  without upscaling, re-encoded to WebP q78. A 1800×2400 JPEG came out **384×512
+  and 0.4 KB**; all six seeded avatars together are **14 kB**. Stripping EXIF is
+  not incidental — phone photos carry GPS, and staff photos should not quietly
+  publish where they were taken.
+- **The declared MIME type is treated as a claim, not a fact.** A `.png` containing
+  text is rejected because sharp cannot decode it. SVG is refused outright: it is a
+  document, it can carry script, and serving one from our own origin would be
+  stored XSS.
+- **It works with JavaScript off** — a plain `<input type="file">` in the existing
+  Server Action form, which already posts `multipart/form-data`.
+- **Lifecycle is handled.** Replacing or removing a photo deletes the old row;
+  leaving the field empty keeps the current photo; a rejected upload leaves the
+  existing one intact; and a rollback deletes bytes stored before the transaction
+  opened, so nothing is stranded.
+- Served by `/api/images/[id]` with `immutable` caching — safe because an id never
+  changes what it points at — plus `nosniff`. **The route is deliberately
+  unauthenticated**; these are public staff photos. It would need an owner check
+  before being reused for anything private.
+
+**Verified with 13 browser checks** driving a real upload end to end: accepted,
+resized, served as WebP, cached immutably, visible on the public salon page,
+junk file rejected *with a message that says why*, the existing photo surviving
+that rejection, and removal returning 404. Typecheck, lint and 68 tests clean.
+
+**Two mistakes worth recording.** The verification script clicked
+`form button[type="submit"]`, which matched the **first** form on the page — a
+"Deactivate" form — so it silently deactivated Layla while reporting `saved=1`.
+Restored. Scope submit clicks to the form you mean (`form:has(input[name="photo"])`).
+Separately, two Server Actions on one page have **two different action ids**, and
+posting to the wrong one succeeds with a 303 while doing nothing at all.
+
+⚠️ **The avatars now showing are placeholders**, from
+`scripts/seed-sample-staff-photos.ts` (demo only, idempotent, `--clear` removes
+them, never overwrites a real upload). They are abstract gradient discs, not stock
+portraits of people who do not exist.
+
+---
+
+**Asked (2026-08-07):** *"review the progress report and create the url for
 me so i can see the process and replace as required."*
 
 **Answered:** Reviewed (led with the entry below) and **brought the URL back**:
@@ -270,6 +323,7 @@ payments, as originally planned.
 | M5 | Payments via Moyasar | ✅ Shipped (`ee46d52`) — needs live keys to exercise |
 | M6 | Design & product layer — dark theme, website testimonials, owner revenue tab + chart | ✅ Shipped (`2ccee68`) |
 | M7 | Location & discovery — owner map picker, proximity search, ratings surfaced | ✅ Shipped (`05ed9f1`) — ratings shown are seeded |
+| M8 | Staff photos — upload, resize/re-encode, serve from DB | ✅ Shipped — avatars shown are placeholders |
 
 **All seven original milestones are covered.** The first plan's M6 (reviews) and M7
 (polish, SEO, deploy) were dissolved by the 2026-07-19 renumbering: review *display*
@@ -286,6 +340,10 @@ ran out, requested session by session rather than scoped up front:
   with a visible gap behind it: browse cards and map pins show star ratings, and
   every one of them comes from a demo seeder, because nothing in the app writes a
   review. Detail under "Completed 2026-08-04".
+- **M8** is staff photo uploads, 2026-08-07. The feature is complete — owners can
+  really upload — but the avatars currently on screen are placeholders from a demo
+  seeder, so the same "looks finished, is seeded" caution applies. Detail in the
+  latest entry at the top of this file.
 
 Neither was anchored in a commit message the way `Milestone 1` and `M5 integrates
 Moyasar` were, so these numbers live only in this file. Treat the commit hashes,
@@ -894,8 +952,15 @@ The milestone table says shipped; this says what "shipped" does not mean.
   but it has still never been deploy-*ed* to a host.
 - **No notifications.** Neither the customer nor the salon is told anything
   outside the web UI. SMS/WhatsApp is near-mandatory in this market.
-- **No photo uploads.** `coverImageUrl` and `SalonPhoto` are modelled; no page
-  renders them and no form sets them.
+- **Salon photos are still not done — only *staff* photos are.** As of 2026-08-07
+  a team member can have a picture, but `Salon.coverImageUrl` and the `SalonPhoto`
+  gallery table remain modelled and unused, so browse cards and salon headers are
+  still text-only. The upload machinery (`server/images/store.ts`, the `Image`
+  table, `/api/images/[id]`) is general, so both are now mostly wiring.
+- **Images live in the database, which is a decision with a shelf life.** Fine at
+  14 kB of avatars; wrong once salons upload galleries. There is no CDN and every
+  byte is in backups. Moving to object storage means changing the write path and
+  the one read route — kept deliberately narrow for that reason.
 - **Only three salons have coordinates, and they are seeded ones.** "Near me"
   works, but it can only find what has been pinned. Any salon created through the
   owner form since 2026-08-04 has a pin only if its owner set one — the field is
@@ -1034,6 +1099,13 @@ The milestone table says shipped; this says what "shipped" does not mean.
   same trap already documented for search queries applies to any Arabic sent as a
   shell argument. Send Arabic from a **file** (`psql -f`, a `.mjs` script, curl
   `--data-binary @file`), never inline.
+- **Two Server Actions on one page have two different action ids**, and posting to
+  the wrong one returns **303 and does nothing**. When driving a form by hand,
+  pull the id out of the specific `<form>` you mean, not the first one on the page.
+- **Scope test clicks to the form under test.** `form button[type="submit"]` picks
+  the first form in the document. On `/owner/staff` that is a "Deactivate" form,
+  so a photo-upload test quietly deactivated a staff member and still reported
+  success. Use `form:has(input[name="..."]) button[type="submit"]`.
 - **Screenshots are worth taking, and `chromium` works.** Playwright's WebKit
   build mismatched its package for two sessions, which is why several features
   shipped "structurally verified" only. `npx playwright install chromium` fixed

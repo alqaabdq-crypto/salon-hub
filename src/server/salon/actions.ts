@@ -9,6 +9,7 @@ import { prisma } from "@/server/db/prisma";
 import { setBookingStatus } from "@/server/booking/status";
 import { refundIfPaid } from "@/server/payments/service";
 import { requireOwnedSalon, uniqueSlug } from "@/server/salon/owner";
+import { deleteImage, storeImage } from "@/server/images/store";
 import { parseClock } from "@/server/booking/time";
 import type { DayOfWeek } from "@/generated/prisma/enums";
 
@@ -228,6 +229,44 @@ export async function saveStaff(formData: FormData): Promise<void> {
 
   const { staffId, ...fields } = parsed.data;
 
+  // The photo, if one was posted. Decoded and re-encoded *before* the
+  // transaction below: resizing is the slowest thing in this action by an order
+  // of magnitude, and holding a write transaction open across it would make
+  // every other staff save on this salon wait for someone else's upload.
+  const upload = formData.get("photo");
+  const removePhoto = formData.get("removePhoto") === "on";
+
+  let uploadedImageId: string | null = null;
+
+  if (upload instanceof File && upload.size > 0) {
+    const stored = await storeImage(upload);
+
+    if (!stored.ok) {
+      return redirect({ href: ownerPath("/owner/staff", `photo-${stored.reason}`), locale });
+    }
+
+    uploadedImageId = stored.imageId;
+  }
+
+  // The photo being replaced or cleared, so its row can be dropped afterwards.
+  const previousPhotoId = staffId
+    ? (
+        await prisma.staff.findFirst({
+          where: { id: staffId, salonId: owned.salonId },
+          select: { photoId: true },
+        })
+      )?.photoId ?? null
+    : null;
+
+  // Absent key means "leave the existing photo alone" — a save that does not
+  // touch the file input must not silently delete the member's picture.
+  const photoUpdate =
+    uploadedImageId !== null
+      ? { photoId: uploadedImageId }
+      : removePhoto
+        ? { photoId: null }
+        : {};
+
   // Services this member performs, and the shifts they work. Both are posted
   // with the member, so one save leaves no half-configured staff behind.
   const serviceIds = formData.getAll("services").map(String).filter(Boolean);
@@ -247,34 +286,47 @@ export async function saveStaff(formData: FormData): Promise<void> {
   });
   const ownedServiceIds = owns.map((service) => service.id);
 
-  await prisma.$transaction(async (tx) => {
-    let id = staffId;
+  try {
+    await prisma.$transaction(async (tx) => {
+      let id = staffId;
 
-    if (id) {
-      const updated = await tx.staff.updateMany({
-        where: { id, salonId: owned.salonId },
-        data: fields,
+      if (id) {
+        const updated = await tx.staff.updateMany({
+          where: { id, salonId: owned.salonId },
+          data: { ...fields, ...photoUpdate },
+        });
+        if (updated.count === 0) throw new Error("not-owned");
+      } else {
+        const created = await tx.staff.create({
+          data: { ...fields, ...photoUpdate, salonId: owned.salonId },
+        });
+        id = created.id;
+      }
+
+      // Replace rather than diff: the form posts the complete intended set, and
+      // these tables carry no data of their own worth preserving.
+      await tx.staffService.deleteMany({ where: { staffId: id } });
+      await tx.staffService.createMany({
+        data: ownedServiceIds.map((serviceId) => ({ staffId: id!, serviceId })),
       });
-      if (updated.count === 0) throw new Error("not-owned");
-    } else {
-      const created = await tx.staff.create({
-        data: { ...fields, salonId: owned.salonId },
+
+      await tx.workingHour.deleteMany({ where: { staffId: id } });
+      await tx.workingHour.createMany({
+        data: shifts.map((shift) => ({ ...shift, staffId: id! })),
       });
-      id = created.id;
-    }
-
-    // Replace rather than diff: the form posts the complete intended set, and
-    // these tables carry no data of their own worth preserving.
-    await tx.staffService.deleteMany({ where: { staffId: id } });
-    await tx.staffService.createMany({
-      data: ownedServiceIds.map((serviceId) => ({ staffId: id!, serviceId })),
     });
+  } catch (error) {
+    // The upload is stored before the transaction opens, so a rollback would
+    // otherwise strand those bytes in the database with nothing referencing them.
+    if (uploadedImageId) await deleteImage(uploadedImageId);
+    throw error;
+  }
 
-    await tx.workingHour.deleteMany({ where: { staffId: id } });
-    await tx.workingHour.createMany({
-      data: shifts.map((shift) => ({ ...shift, staffId: id! })),
-    });
-  });
+  // Only once the row above is safely pointing somewhere else. Deleting first
+  // would leave the member with no photo if the transaction then rolled back.
+  if (previousPhotoId && previousPhotoId !== uploadedImageId && Object.keys(photoUpdate).length > 0) {
+    await deleteImage(previousPhotoId);
+  }
 
   revalidatePath(`/${locale}/owner/staff`);
   return redirect({ href: ownerPath("/owner/staff"), locale });

@@ -183,7 +183,13 @@
     "revEmpty": "No revenue yet. Once customers pay for confirmed bookings, your earnings will show up here.",
     "revChartTitle": "Revenue — last 6 months",
     "revChartHint": "Net earnings per month (SAR)",
-    "revChartEmpty": "No revenue in the last 6 months yet. Paid bookings will chart here."
+    "revChartEmpty": "No revenue in the last 6 months yet. Paid bookings will chart here.",
+    "staffPhoto": "Photo",
+    "staffPhotoHelp": "JPEG, PNG, WebP, AVIF or GIF, up to 8 MB. It is resized and re-encoded automatically. Leave empty to keep the current photo.",
+    "removePhoto": "Remove the current photo",
+    "photoTooLarge": "That image is too large. The limit is 8 MB.",
+    "photoUnsupported": "That file type is not supported. Use JPEG, PNG, WebP, AVIF or GIF.",
+    "photoCorrupt": "That file could not be read as an image."
   },
   "Admin": {
     "title": "Admin",
