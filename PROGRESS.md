@@ -14,7 +14,33 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-07, latest):** *"build me a customer services option."* — scoped in
+**Asked (2026-08-07, latest):** *"please update the progress report also github."*
+
+**Answered:** `PROGRESS.md` was **already current and already pushed** — `HEAD` and
+`origin/main` were both at `a4a95f8` before this request, carrying the support
+feature. Rather than report "nothing to do", the check found what actually *was*
+stale on GitHub: **the README**.
+
+It still described payments as "planned" (they shipped in M5), stopped before
+maps, photos and support existed, and — the long-running item — **published the
+admin password in a public repository**. Now fixed:
+
+- **Password leak closed.** Open since the repo went public on 2026-07-27. The
+  README no longer prints `admin1234` / `owner1234`; it directs you to set
+  `SEED_ADMIN_PASSWORD` / `SEED_OWNER_PASSWORD` and notes the localhost defaults
+  live in `prisma/seed.ts`. Worth stating plainly: **those passwords were public
+  for eleven days and are in the git history**, so treat them as burned.
+- New sections for **Location and discovery**, **Photos** and **Customer service**,
+  each carrying the constraint that bites rather than just the feature list — the
+  OSM attribution licence condition, Nominatim's rate limit, EXIF/GPS stripping,
+  the object-storage migration this will need, and the absence of real rate
+  limiting on `/help`.
+- Routing table, project layout, testing section and demo-seeder commands brought
+  up to date. Testing now says outright that **only the pure modules are in CI**.
+
+---
+
+**Asked (2026-08-07):** *"build me a customer services option."* — scoped in
 follow-up to **support against the platform** (not salon messaging), with the loop
 closed: **submit → admin replies → customer reads the reply**.
 
@@ -1267,9 +1293,13 @@ project owner holds:**
 - **A real host.** See "Deployment" — blocked on `vercel login` and a Neon
   connection string, nothing else.
 
-**Still open, cheap:** the now-public **README lists the demo passwords**
-(`admin1234` / `owner1234`) — scrub if that matters. The RedSun sun-glow can now
-actually be eyeballed, since Chromium works; it has not been tuned.
+**The README password leak is closed** (2026-08-07). The public README no longer
+prints `admin1234` / `owner1234`; it tells you to choose `SEED_ADMIN_PASSWORD` and
+`SEED_OWNER_PASSWORD` instead, and notes the defaults live in `prisma/seed.ts` for
+localhost only. Open since the repo went public on 2026-07-27.
+
+**Still open, cheap:** the RedSun sun-glow can now actually be eyeballed, since
+Chromium works; it has not been tuned.
 
 Suggested order:
 

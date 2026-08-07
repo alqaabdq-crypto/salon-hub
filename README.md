@@ -2,9 +2,13 @@
 
 A bilingual (English / Arabic, RTL) salon-booking marketplace for Saudi Arabia.
 
-Customers discover and book salons; salon owners manage their listing, staff and
-schedule; admins verify salons before they go live. Prices are in SAR, with
-payments planned through Moyasar.
+Customers discover and book salons — by city, by search, or by what is **nearest
+to them on a map** — then pay in SAR through Moyasar. Salon owners manage their
+listing, location, staff, photos and schedule. Admins verify salons before they go
+live and answer customer support requests.
+
+See [PROGRESS.md](./PROGRESS.md) for what is built, what is only seeded, and what
+is genuinely not done — it is the status of record and more candid than this file.
 
 ## Product decisions
 
@@ -39,15 +43,33 @@ docker compose up -d          # Postgres 16 on :5432
 
 # 3. Schema and seed
 npx prisma migrate dev        # apply migrations
-npx prisma db seed            # creates the only admin account
+SEED_ADMIN_PASSWORD=... SEED_OWNER_PASSWORD=... npx prisma db seed
 
 # 4. Run
 npm run dev                   # http://localhost:3000
 ```
 
-The seed creates **`admin@salonhub.sa` / `admin1234`**. Run it — registration
-deliberately refuses the `ADMIN` role, so seeding is the only way to get into
-`/admin`. Change this password before any deployment.
+The seed creates the admin account **`admin@salonhub.sa`** and three salon owners.
+Run it — registration deliberately refuses the `ADMIN` role, so seeding is the
+only way into `/admin`.
+
+**Choose the passwords yourself** via `SEED_ADMIN_PASSWORD` and
+`SEED_OWNER_PASSWORD`. There are development defaults in `prisma/seed.ts` for
+convenience on localhost, but they are not printed here on purpose: this
+repository is public, and the admin account can approve and suspend salons. The
+seed **refuses to run at all** against a non-local `DATABASE_URL` unless both
+variables are set, so a deployment cannot inherit them by accident.
+
+### Optional demo data
+
+The base seed creates salons, services and staff but no bookings. Three scripts
+add demo content — all idempotent, none part of the product, all safe to delete:
+
+```bash
+npx tsx scripts/seed-sample-revenue.ts   # paid bookings, for the owner revenue tab
+npx tsx scripts/seed-sample-reviews.ts   # reviews, so ratings are not all 0.0
+npx tsx scripts/seed-sample-photos.ts    # placeholder avatars and salon covers
+```
 
 ### Environment variables
 
@@ -68,9 +90,11 @@ Locale-prefixed routes (`/en/...`, `/ar/...`) with three role-guarded sections:
 
 | Section | Role | Notes |
 | --- | --- | --- |
+| `/salons` | anyone | Browse, search, filter, and find the nearest. |
+| `/help` | anyone | Support requests. Open to guests — see Customer service. |
 | `/account` | `CUSTOMER` | Bookings, cancel, pay. |
-| `/owner` | `SALON_OWNER` | Salon profile, services, team, bookings. |
-| `/admin` | `ADMIN` | Verification queue. Seed-only; cannot be self-registered. |
+| `/owner` | `SALON_OWNER` | Salon profile, location, cover photo, services, team, bookings, revenue. |
+| `/admin` | `ADMIN` | Verification queue and support queue. Seed-only; cannot be self-registered. |
 
 A salon owner signs up before they have a salon, so `/owner` also creates one.
 New salons start `PENDING_VERIFICATION` and stay invisible to customers — not
@@ -145,13 +169,83 @@ Commission precedence is **salon override → plan rate → platform default (15
 resolved at capture time and never recomputed, so changing a rate later cannot
 alter what a salon is owed for work already paid for.
 
+## Location and discovery
+
+Salon owners drop a pin on a map in `/owner/profile`; customers press **Near me**
+on `/salons` and get results ordered by distance, with a map of them.
+
+Maps are **Leaflet + OpenStreetMap** — no API key, no billing account. Two
+consequences that are not optional:
+
+- The **OpenStreetMap attribution** rendered in the corner of every map is a
+  licence condition. Do not remove it.
+- Address search uses **Nominatim**, whose usage policy caps requests at roughly
+  one per second. It fires on submit, never on keystroke. A production deployment
+  with real traffic should self-host a geocoder or buy one; the same goes for the
+  tile server.
+
+There is **no PostGIS**. Proximity is a two-step filter: a bounding box in SQL
+(served by `@@index([status, lat, lng])`) narrowed by exact Haversine in JS, which
+also does the ordering. `src/lib/geo.ts` is pure and unit-tested; the trade-off is
+that the distance *sort* is unindexable, which is fine at this catalogue size and
+wrong for a national one.
+
+Geolocation only ever writes `?lat=&lng=` into the URL — the search itself is
+server-rendered, so a proximity result stays shareable and the back button works.
+
+## Photos
+
+Owners upload a **cover photo** per salon and a **photo per staff member**. Bytes
+live in Postgres (`Image`) and are served by `/api/images/[id]`.
+
+That is a deliberate trade, not an oversight: it needs no account, no keys and no
+bill, and it behaves identically on a managed Postgres — where a local upload
+directory would not, the filesystem being ephemeral on most hosts. The cost is
+that there is no CDN and every photo sits in your backups. **At real catalogue
+size this should move to object storage**; the read path is one route, which is
+what keeps that migration contained.
+
+Uploads are re-encoded rather than merely stored (`src/server/images/store.ts`):
+EXIF rotation applied then **stripped** — phone photos carry GPS, and a staff photo
+should not publish where it was taken — resized to fit (512px avatars, 1280px
+covers), and re-encoded to WebP. The declared MIME type is treated as a claim, not
+a fact: anything that fails to decode is rejected, and SVG is refused outright
+since it is a document that can carry script.
+
+## Customer service
+
+Customers raise a support request at `/help`; admins answer it at
+`/admin/support`; the customer reads the reply back on `/help`.
+
+Tickets can be raised by **guests** — `SupportTicket.customerId` is nullable on
+purpose, because the person most in need of support is often the one who cannot
+sign in. Name and email are therefore always captured rather than read off the
+account, and the queue flags account-less tickets.
+
+Replying sets `ANSWERED`; closing is a separate act, because most replies invite a
+follow-up. A ticket may reference a booking, but only one the sender owns.
+
+Because the endpoint is open by design it carries a honeypot field, length limits
+and a cap on open tickets per email address — all of which work with JavaScript
+disabled. **None of that is real rate limiting**, and a public deployment should
+add some.
+
+> There are **no notifications** anywhere in this app, support included. A reply is
+> discovered by revisiting `/help`, and a ticket by opening the queue.
+
 ## Testing
 
 ```bash
-npm test          # vitest, unit tests over the pure booking and money modules
+npm test          # vitest — pure modules: booking, money, geo
 npm run typecheck # tsc --noEmit
 npm run lint
 ```
+
+68 unit tests cover the modules deliberately kept free of Prisma and the clock:
+the availability engine, Riyadh/UTC conversion, halala money maths, and the
+Haversine and bounding-box geometry. **Everything else — the Server Actions,
+uploads, the support loop — is covered by throwaway browser scripts, not by
+anything that runs in CI.** See PROGRESS.md.
 
 ### On a phone
 
@@ -162,9 +256,14 @@ macOS; it is the closest stand-in that works on Windows or Linux.
 
 ```bash
 npm run build && npx next start -p 3111
-npx playwright install webkit
+npx playwright install webkit chromium
 CUST_EMAIL=someone@example.test node scripts/iphone-run.mjs ./shots
 ```
+
+Install **chromium** as well and actually look at the pages. Several features here
+shipped "structurally verified" for weeks because a WebKit version mismatch made
+screenshots impossible; when that was fixed, the very first screenshot exposed two
+defects that every HTTP assertion had passed straight over.
 
 It taps through a real booking and asserts the things only a phone shows: no
 horizontal scroll in either language, Arabic laid out RTL with real glyph widths,
@@ -188,17 +287,21 @@ code without erroring. See PROGRESS.md for the workaround.
 ## Project layout
 
 ```
-prisma/            schema, migrations, seed
-messages/          en.json, ar.json
-src/app/[locale]/  locale-prefixed routes
-src/app/api/       auth + registration handlers
-src/components/    ui primitives, dashboard shell
-src/i18n/          next-intl routing, request config, navigation
-src/proxy.ts       optimistic auth + locale routing (Next 16 "Proxy")
-src/server/        auth config, RBAC helper, Prisma client
-src/server/booking availability engine, booking actions, status machine
-src/server/salon   salon-owner actions
-src/server/admin   verification actions
+prisma/             schema, migrations, seed
+messages/           en.json, ar.json
+src/app/[locale]/   locale-prefixed routes
+src/app/api/        auth, registration, Moyasar webhook, image serving
+src/components/     ui primitives, dashboard shell, staff avatar
+src/components/map/ Leaflet loader, location picker, salons map, near-me button
+src/i18n/           next-intl routing, request config, navigation
+src/lib/geo.ts      pure Haversine / bounding-box geometry
+src/proxy.ts        optimistic auth + locale routing (Next 16 "Proxy")
+src/server/         auth config, RBAC helper, Prisma client
+src/server/booking  availability engine, booking actions, status machine
+src/server/salon    salon-owner actions, proximity query, rating recompute
+src/server/images   upload validation, resize/re-encode, storage
+src/server/support  support ticket actions
+src/server/admin    verification actions
 src/server/payments Moyasar client, commission maths, hold expiry
-scripts/           iphone-run.mjs — drives the app on an iPhone profile
+scripts/            iphone-run.mjs, plus the optional demo seeders above
 ```
