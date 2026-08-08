@@ -165,7 +165,7 @@ convenience that may never arrive, and its query string is treated as
 attacker-supplied (anyone can visit that URL with `status=paid`). Both re-read
 the payment through the API before recording anything.
 
-Commission precedence is **salon override → plan rate → platform default (15%)**,
+Commission precedence is **salon override → plan rate → platform default (30%)**,
 resolved at capture time and never recomputed, so changing a rate later cannot
 alter what a salon is owed for work already paid for.
 

@@ -6,8 +6,15 @@
 // commission split can be reasoned about at all: fee + net is *always* the
 // amount charged, with no lost or invented halalas.
 
-/** The cut the platform takes when neither the salon nor its plan overrides it. */
-export const DEFAULT_PLATFORM_COMMISSION = 0.15;
+/**
+ * The cut the platform takes when neither the salon nor its plan overrides it.
+ *
+ * This is the **free-tier rate**: the `FREE` plan carries a null `commissionRate`
+ * and therefore inherits this number, as does a salon with no subscription at
+ * all. Premium buys its way down to the plan's own rate — that gap is the whole
+ * commercial argument for subscribing, so the two move together.
+ */
+export const DEFAULT_PLATFORM_COMMISSION = 0.3;
 
 /** "150.00" or 150 → 15000. Rounds, so a stray third decimal cannot slip through. */
 export function sarToHalalas(sar: string | number): number {

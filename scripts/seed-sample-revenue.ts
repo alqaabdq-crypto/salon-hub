@@ -11,6 +11,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { resolveCommissionRate } from "../src/server/payments/money";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -19,15 +20,25 @@ const MARKER = "SEED_SAMPLE_REVENUE";
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * Per salon: how many paid bookings land in each of the last six months, and the
- * commission actually charged. The rates differ on purpose — `Salon.commissionRate`
- * is a negotiated override, and a marketplace where every rate is identical hides
- * whether the admin page reports the realised rate or just repeats the default.
+ * Per salon: how many paid bookings land in each of the last six months, and how
+ * that salon gets its commission rate.
+ *
+ * The three routes through `resolveCommissionRate` are each represented on
+ * purpose — free tier, a premium subscription, and a negotiated override — so
+ * the admin Revenue page has something to report other than one constant
+ * repeated three times, and so the precedence chain is actually exercised rather
+ * than merely unit-tested.
  */
-const PLAN: Record<string, { perMonth: number[]; commission: number }> = {
-  "rose-beauty-lounge": { perMonth: [2, 3, 2, 4, 3, 2], commission: 0.15 },
-  "al-fursan-barbers": { perMonth: [3, 2, 4, 3, 5, 3], commission: 0.12 },
-  "glow-studio": { perMonth: [1, 2, 1, 2, 2, 1], commission: 0.15 },
+const PLAN: Record<
+  string,
+  { perMonth: number[]; tier: "FREE" | "PREMIUM"; override?: number }
+> = {
+  // Free tier: inherits the platform default (30%).
+  "rose-beauty-lounge": { perMonth: [2, 3, 2, 4, 3, 2], tier: "FREE" },
+  // Subscribed to Premium, which buys the plan's own rate (10%).
+  "al-fursan-barbers": { perMonth: [3, 2, 4, 3, 5, 3], tier: "PREMIUM" },
+  // Free tier, but with a negotiated per-salon deal that beats it.
+  "glow-studio": { perMonth: [1, 2, 1, 2, 2, 1], tier: "FREE", override: 0.2 },
 };
 
 async function main() {
@@ -49,12 +60,44 @@ async function main() {
   const now = new Date();
   let sequence = 0;
 
-  for (const [slug, { perMonth, commission }] of Object.entries(PLAN)) {
+  for (const [slug, { perMonth, tier, override }] of Object.entries(PLAN)) {
     const salon = await prisma.salon.findUnique({ where: { slug } });
     if (!salon) {
       console.warn(`Skipping ${slug}: not found. Seed the base data first.`);
       continue;
     }
+
+    // Put the salon on its tier for real rather than assuming a rate. A
+    // subscription row is what makes the plan's discount apply at all, and
+    // until now the Subscription table has never had one.
+    const plan = await prisma.plan.findUnique({ where: { tier } });
+    if (!plan) throw new Error(`Plan ${tier} missing — seed the base data first.`);
+
+    const period = new Date(now);
+    period.setMonth(period.getMonth() - 6);
+
+    await prisma.subscription.upsert({
+      where: { salonId: salon.id },
+      update: { planId: plan.id, status: "ACTIVE" },
+      create: {
+        salonId: salon.id,
+        planId: plan.id,
+        status: "ACTIVE",
+        currentPeriodStart: period,
+        currentPeriodEnd: new Date(now.getFullYear() + 1, now.getMonth(), 1),
+      },
+    });
+
+    await prisma.salon.update({
+      where: { id: salon.id },
+      data: { commissionRate: override ?? null },
+    });
+
+    // The same precedence the payment path uses: salon override → plan → default.
+    const commission = resolveCommissionRate({
+      salonRate: override ?? null,
+      planRate: plan.commissionRate === null ? null : Number(plan.commissionRate),
+    });
 
     const services = await prisma.service.findMany({
       where: { salonId: salon.id, isActive: true },
@@ -152,9 +195,11 @@ async function main() {
       }
     }
 
+    const source = override !== undefined ? "salon override" : `${tier} plan`;
     console.log(
       `${salon.nameEn}: ${paid} paid · gross ${gross.toFixed(2)} · ` +
-        `commission ${fees.toFixed(2)} (${(commission * 100).toFixed(0)}%) · net ${net.toFixed(2)}`,
+        `commission ${fees.toFixed(2)} (${(commission * 100).toFixed(0)}%, ${source}) · ` +
+        `net ${net.toFixed(2)}`,
     );
   }
 }

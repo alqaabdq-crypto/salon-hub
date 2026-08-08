@@ -45,7 +45,7 @@ describe("resolveCommissionRate", () => {
 
   it("treats a zero rate as a real deal, not a missing one", () => {
     // `??` rather than `||` — a salon that pays no commission is a negotiated
-    // outcome, and must not silently fall through to 15%.
+    // outcome, and must not silently fall through to the platform default.
     expect(resolveCommissionRate({ salonRate: 0, planRate: 0.1 })).toBe(0);
   });
 

@@ -14,7 +14,46 @@ listing, staff and schedule; admins verify salons before they go live.
 > instruction from the project owner: begin a review by stating what was last
 > asked for and what the answer was, before anything else.
 
-**Asked (2026-08-08, latest):** *"i need the admin dashboard to have the revenue and
+**Asked (2026-08-08, latest):** *"make the commission in the free plan 30%."*
+
+**Answered:** `DEFAULT_PLATFORM_COMMISSION` is now **0.30**, up from 0.15.
+
+That constant *is* the free-tier rate: the `FREE` plan carries a null
+`commissionRate` and inherits it, as does a salon with no subscription at all.
+Changing it in one place was therefore the whole change — no migration, and the
+precedence chain (**salon override → plan rate → platform default**) is untouched.
+Premium still buys **10%**, so the gap that justifies the SAR 199/month
+subscription widened from 5 points to **20**.
+
+**The demo seeder was reworked to stop contradicting it.** It had hardcoded
+15%/12%/15% per salon, which would have silently disagreed with the new default.
+It now puts each salon on a real tier and resolves the rate through the same
+`resolveCommissionRate` the payment path uses, so all three routes are exercised
+rather than merely unit-tested:
+
+| Salon | Route | Rate |
+| --- | --- | --- |
+| Rose Beauty Lounge | `FREE` plan → platform default | **30%** |
+| Glow Studio | negotiated salon override | **20%** |
+| Al Fursan Barbers | `PREMIUM` plan rate | **10%** |
+
+**The `Subscription` table now has rows for the first time** — previously empty,
+which is why the plan-rate branch had never run against real data. Platform
+commission on the same 42 bookings rose from SAR 973.50 to **SAR 1,549**, and the
+blended rate from 14.4% to **23%**.
+
+⚠️ **Existing payments were regenerated, not repriced.** The seeder clears and
+rewrites its rows, so these figures reflect the new rate. In production the
+opposite holds and is the point of the design: a split is frozen at capture time,
+so changing this constant never rewrites what a salon has already earned. Only
+future payments would see 30%.
+
+68 tests still pass — they assert against the constant rather than a literal — and
+the 14 admin-revenue browser checks pass with the new figures.
+
+---
+
+**Asked (2026-08-08):** *"i need the admin dashboard to have the revenue and
 how much each salon earn."*
 
 **Answered:** New **`/admin/revenue`**, linked from the admin dashboard beside the

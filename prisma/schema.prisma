@@ -129,7 +129,8 @@ model Salon {
   reviewCount   Int         @default(0)
 
   // Negotiated per-salon override. Null falls back to the subscribed plan's
-  // rate, then to the platform default. Stored as a fraction: 0.1500 = 15%.
+  // rate, then to the platform default (the free-tier rate, in money.ts).
+  // Stored as a fraction: 0.3000 = 30%.
   commissionRate Decimal? @db.Decimal(5, 4)
 
   createdAt DateTime @default(now())
